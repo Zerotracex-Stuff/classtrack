@@ -531,6 +531,47 @@ export const SettingsScreen: React.FC = () => {
           </View>
         </Card>
 
+        {/* Time Format Preference (12h vs 24h) */}
+        <Card style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Time Display Format</Text>
+          <Text style={[styles.fieldSubtitle, { color: colors.textSecondary }]}>
+            Choose between 12-hour (09:00 AM) and 24-hour (09:00) military time.
+          </Text>
+
+          <View style={[styles.themeRow, { backgroundColor: colors.surfaceVariant }]}>
+            {(['12h', '24h'] as const).map(fmt => {
+              const isActive = (settings.timeFormat || '12h') === fmt;
+              return (
+                <TouchableOpacity
+                  key={fmt}
+                  style={[
+                    styles.themeOption,
+                    isActive && {
+                      backgroundColor: colors.primary,
+                      borderRadius: 10,
+                    },
+                  ]}
+                  onPress={() => updateSettings({ timeFormat: fmt })}
+                >
+                  <Ionicons
+                    name="time-outline"
+                    size={16}
+                    color={isActive ? colors.onPrimary : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.themeText,
+                      { color: isActive ? colors.onPrimary : colors.text },
+                    ]}
+                  >
+                    {fmt === '12h' ? '12-Hour (09:00 AM)' : '24-Hour (09:00)'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Card>
+
         {/* Attendance Target */}
         <Card style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Attendance Target</Text>

@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import HomeWidget from 'react-native-home-widget';
 import { Subject, Period, TimetableEntry, AttendanceRecord, Exam, UserSettings } from '../types';
 import { format, parseISO, isFuture, isToday } from 'date-fns';
+import { formatTime, formatTimeRange } from '../utils/timeUtils';
 
 export interface WidgetSyncPayload {
   nextClassName: string;
@@ -60,9 +61,11 @@ export const syncLauncherHomeWidgets = async (payload: {
         const startMins = startH * 60 + startM;
         const endMins = endH * 60 + endM;
 
+        const timeFmt = settings.timeFormat || '12h';
+
         if (currentMins >= startMins && currentMins <= endMins) {
           nextClassName = item.subject?.name || 'Class in Progress';
-          nextClassTime = `${item.period.startTime} - ${item.period.endTime}`;
+          nextClassTime = formatTimeRange(item.period.startTime, item.period.endTime, timeFmt);
           nextClassRoom = item.entry.roomOverride || item.subject?.room || '';
           nextClassTeacher = item.entry.teacher || item.subject?.teacher || '';
           const minsLeft = endMins - currentMins;
@@ -70,7 +73,7 @@ export const syncLauncherHomeWidgets = async (payload: {
           break;
         } else if (currentMins < startMins) {
           nextClassName = item.subject?.name || 'Upcoming Class';
-          nextClassTime = `${item.period.startTime} - ${item.period.endTime}`;
+          nextClassTime = formatTimeRange(item.period.startTime, item.period.endTime, timeFmt);
           nextClassRoom = item.entry.roomOverride || item.subject?.room || '';
           nextClassTeacher = item.entry.teacher || item.subject?.teacher || '';
           const minsUntil = startMins - currentMins;
@@ -82,8 +85,9 @@ export const syncLauncherHomeWidgets = async (payload: {
       // If all classes passed for today
       if (nextClassName === 'No More Classes Today' && todayEntries[0]) {
         const first = todayEntries[0];
+        const timeFmt = settings.timeFormat || '12h';
         nextClassName = first.subject?.name || 'First Class Tomorrow';
-        nextClassTime = `${first.period?.startTime} (${first.subject?.name})`;
+        nextClassTime = `${formatTime(first.period?.startTime, timeFmt)} (${first.subject?.name})`;
         nextClassCountdown = 'Done for Today 🎉';
       }
     }

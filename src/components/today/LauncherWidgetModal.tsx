@@ -15,6 +15,7 @@ import { useApp } from '../../context/AppContext';
 import { syncLauncherHomeWidgets } from '../../services/homeWidgetService';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO, isFuture, isToday } from 'date-fns';
+import { formatTimeRange } from '../../utils/timeUtils';
 
 interface LauncherWidgetModalProps {
   visible: boolean;
@@ -240,7 +241,7 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                     </Text>
                     <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
                       <Text style={[styles.widgetMeta, { color: colors.textSecondary }]}>
-                        ⏰ {firstClass?.period?.startTime || '09:00'} - {firstClass?.period?.endTime || '09:45'}
+                        ⏰ {formatTimeRange(firstClass?.period?.startTime || '09:00', firstClass?.period?.endTime || '09:45', settings.timeFormat || '12h')}
                       </Text>
                       <Text style={[styles.widgetMeta, { color: colors.textSecondary }]}>
                         📍 {firstClass?.entry?.roomOverride || firstClass?.subject?.room || 'Lab 402'}

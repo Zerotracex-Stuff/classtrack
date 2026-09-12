@@ -22,7 +22,14 @@ interface SubjectAttendanceCardProps {
 
 export const SubjectAttendanceCard: React.FC<SubjectAttendanceCardProps> = ({ subject }) => {
   const { colors, isDark } = useTheme();
-  const { getSubjectStats, markAttendance, setSubjectBaseline } = useApp();
+  const {
+    getSubjectStats,
+    markAttendance,
+    setSubjectBaseline,
+    periods,
+    entries,
+    attendance,
+  } = useApp();
 
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [baselineModalVisible, setBaselineModalVisible] = useState(false);
@@ -40,7 +47,28 @@ export const SubjectAttendanceCard: React.FC<SubjectAttendanceCardProps> = ({ su
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const handleQuickAdd = (status: 'present' | 'absent') => {
-    markAttendance(subject.id, todayStr, status);
+    const todayWeekday = ((new Date().getDay() + 6) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+    const todayEntries = entries
+      .filter(e => e.weekday === todayWeekday && e.subjectId === subject.id)
+      .sort((a, b) => {
+        const pA = periods.find(p => p.id === a.periodId);
+        const pB = periods.find(p => p.id === b.periodId);
+        return (pA?.startTime || '').localeCompare(pB?.startTime || '');
+      });
+
+    // Find first period for this subject today that hasn't been marked yet
+    const unmarkedEntry = todayEntries.find(e => {
+      return !attendance.some(
+        a => a.date === todayStr && a.subjectId === subject.id && a.periodId === e.periodId
+      );
+    });
+
+    if (unmarkedEntry) {
+      markAttendance(subject.id, todayStr, status, undefined, unmarkedEntry.periodId);
+    } else {
+      // If all scheduled periods today are already marked or none scheduled, mark as general
+      markAttendance(subject.id, todayStr, status);
+    }
   };
 
   const handleSaveBaseline = async () => {
@@ -66,6 +94,13 @@ export const SubjectAttendanceCard: React.FC<SubjectAttendanceCardProps> = ({ su
             <View style={{ flex: 1, marginLeft: 10 }}>
               <View style={styles.nameRow}>
                 <Text style={[styles.subjectName, { color: colors.text }]}>{subject.name}</Text>
+                {subject.category ? (
+                  <View style={[styles.categoryBadge, { backgroundColor: colors.surfaceVariant }]}>
+                    <Text style={[styles.categoryBadgeText, { color: colors.primary }]}>
+                      {subject.category}
+                    </Text>
+                  </View>
+                ) : null}
                 <Ionicons name="chevron-forward" size={14} color={colors.textTertiary} style={{ marginLeft: 4 }} />
               </View>
               <Text style={[styles.subjectMeta, { color: colors.textSecondary }]}>
@@ -285,6 +320,18 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  categoryBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  categoryBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   subjectName: {
     fontSize: 16,

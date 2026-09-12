@@ -101,7 +101,7 @@ export const HeatmapCalendar: React.FC = () => {
         const entry = entries.find(e => e.weekday === weekday && e.periodId === p.id);
         const sub = entry?.subjectId ? getSubject(entry.subjectId) : undefined;
         const rec = sub
-          ? attendance.find(a => a.date === selectedDateStr && a.subjectId === sub.id)
+          ? attendance.find(a => a.date === selectedDateStr && a.subjectId === sub.id && a.periodId === p.id)
           : undefined;
 
         return {
@@ -428,7 +428,7 @@ export const HeatmapCalendar: React.FC = () => {
                           ]}
                           onPress={() =>
                             selectedDateStr &&
-                            markAttendance(sub.id, selectedDateStr, 'present')
+                            markAttendance(sub.id, selectedDateStr, 'present', undefined, p.id)
                           }
                           activeOpacity={0.7}
                         >
@@ -456,7 +456,7 @@ export const HeatmapCalendar: React.FC = () => {
                           ]}
                           onPress={() =>
                             selectedDateStr &&
-                            markAttendance(sub.id, selectedDateStr, 'absent')
+                            markAttendance(sub.id, selectedDateStr, 'absent', undefined, p.id)
                           }
                           activeOpacity={0.7}
                         >
@@ -484,7 +484,7 @@ export const HeatmapCalendar: React.FC = () => {
                           ]}
                           onPress={() =>
                             selectedDateStr &&
-                            markAttendance(sub.id, selectedDateStr, 'not_held')
+                            markAttendance(sub.id, selectedDateStr, 'not_held', undefined, p.id)
                           }
                           activeOpacity={0.7}
                         >
@@ -507,11 +507,11 @@ export const HeatmapCalendar: React.FC = () => {
                           <TouchableOpacity
                             style={[styles.clearMarkBtn, { backgroundColor: colors.surfaceVariant }]}
                             onPress={() =>
-                              selectedDateStr && removeAttendance(sub.id, selectedDateStr)
+                              selectedDateStr && removeAttendance(sub.id, selectedDateStr, p.id)
                             }
                             activeOpacity={0.7}
                           >
-                            <Ionicons name="trash-outline" size={14} color={colors.textTertiary} />
+                            <Ionicons name="trash-outline" size={14} color={colors.textSecondary} />
                           </TouchableOpacity>
                         )}
                       </View>

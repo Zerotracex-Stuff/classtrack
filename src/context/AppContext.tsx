@@ -222,11 +222,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Attendance
   const getAttendanceRecord = useCallback((date: string, subjectId: string, periodId?: string) => {
-    return attendance.find(a =>
-      a.date === date &&
-      a.subjectId === subjectId &&
-      (periodId ? a.periodId === periodId : true)
-    );
+    return attendance.find(a => {
+      if (a.date !== date || a.subjectId !== subjectId) return false;
+      if (periodId) {
+        return a.periodId === periodId;
+      }
+      return !a.periodId;
+    });
   }, [attendance]);
 
   const markAttendance = async (
@@ -237,27 +239,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     periodId?: string
   ) => {
     setAttendance(prev => {
-      const existingIdx = prev.findIndex(a =>
-        a.date === date &&
-        a.subjectId === subjectId &&
-        (periodId ? a.periodId === periodId : (!a.periodId || true))
-      );
+      // Find existing record matching exact date, subject, AND periodId
+      const existingIdx = prev.findIndex(a => {
+        if (a.date !== date || a.subjectId !== subjectId) return false;
+        if (periodId) {
+          return a.periodId === periodId;
+        } else {
+          return !a.periodId;
+        }
+      });
+
       let updated: AttendanceRecord[];
       if (existingIdx >= 0) {
         updated = [...prev];
         updated[existingIdx] = {
           ...prev[existingIdx],
           status,
-          periodId: periodId || prev[existingIdx].periodId,
+          periodId: periodId !== undefined ? periodId : prev[existingIdx].periodId,
           note: note !== undefined ? note : prev[existingIdx].note,
           markedAt: Date.now(),
         };
       } else {
         const record: AttendanceRecord = {
-          id: `att_${date}_${subjectId}_${periodId || ''}_${Date.now()}`,
+          id: `att_${date}_${subjectId}_${periodId || 'gen'}_${Date.now()}`,
           date,
           subjectId,
-          periodId,
+          periodId: periodId || undefined,
           status,
           note,
           markedAt: Date.now(),
@@ -271,9 +278,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const removeAttendance = async (subjectId: string, date: string, periodId?: string) => {
     setAttendance(prev => {
-      const updated = prev.filter(a =>
-        !(a.date === date && a.subjectId === subjectId && (periodId ? a.periodId === periodId : true))
-      );
+      const updated = prev.filter(a => {
+        if (a.date !== date || a.subjectId !== subjectId) return true;
+        if (periodId) {
+          return a.periodId !== periodId;
+        } else {
+          return !!a.periodId; // keep records that have a specific periodId
+        }
+      });
       persistCollection('ATTENDANCE', updated);
       return updated;
     });

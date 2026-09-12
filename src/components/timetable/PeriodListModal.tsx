@@ -14,6 +14,7 @@ import { Period } from '../../types';
 import { PeriodModal } from './PeriodModal';
 import { Badge } from '../common/Badge';
 import { Ionicons } from '@expo/vector-icons';
+import { formatTimeRange } from '../../utils/timeUtils';
 
 interface PeriodListModalProps {
   visible: boolean;
@@ -22,7 +23,7 @@ interface PeriodListModalProps {
 
 export const PeriodListModal: React.FC<PeriodListModalProps> = ({ visible, onClose }) => {
   const { colors } = useTheme();
-  const { periods } = useApp();
+  const { periods, settings } = useApp();
 
   const [editingPeriod, setEditingPeriod] = useState<Period | null>(null);
   const [periodModalVisible, setPeriodModalVisible] = useState(false);
@@ -123,7 +124,7 @@ export const PeriodListModal: React.FC<PeriodListModalProps> = ({ visible, onClo
                           ) : null}
                         </View>
                         <Text style={[styles.periodTimes, { color: colors.textSecondary }]}>
-                          {period.startTime} - {period.endTime} ({duration} mins)
+                          {formatTimeRange(period.startTime, period.endTime, settings.timeFormat || '12h')} ({duration} mins)
                         </Text>
                       </View>
                     </View>

@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AttendanceStatus, Subject, Period } from '../../types';
 import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
+import { formatTime, formatTimeRange } from '../../utils/timeUtils';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = 110;
@@ -76,7 +77,7 @@ export const SwipeDeck: React.FC = () => {
         const sub = getSubject(entry.subjectId);
         if (sub) {
           const rec = attendance.find(
-            a => a.date === todayStr && a.subjectId === sub.id && (a.periodId ? a.periodId === p.id : true)
+            a => a.date === todayStr && a.subjectId === sub.id && a.periodId === p.id
           );
           items.push({
             id: `${todayStr}_${sub.id}_${p.id}`,
@@ -243,7 +244,7 @@ export const SwipeDeck: React.FC = () => {
                   <View style={styles.cardTop}>
                     <Badge label={nextItem.period.label} variant="neutral" size="sm" />
                     <Text style={[styles.cardTime, { color: colors.textSecondary }]}>
-                      {nextItem.period.startTime} - {nextItem.period.endTime}
+                      {formatTimeRange(nextItem.period.startTime, nextItem.period.endTime, settings.timeFormat || '12h')}
                     </Text>
                   </View>
 
@@ -328,7 +329,7 @@ export const SwipeDeck: React.FC = () => {
                     size="sm"
                   />
                   <Text style={[styles.cardTime, { color: colors.textSecondary }]}>
-                    {currentItem.period.startTime} - {currentItem.period.endTime}
+                    {formatTimeRange(currentItem.period.startTime, currentItem.period.endTime, settings.timeFormat || '12h')}
                   </Text>
                 </View>
 
@@ -428,7 +429,7 @@ export const SwipeDeck: React.FC = () => {
             </Text>
             <Text style={[styles.completedSubtitle, { color: colors.textSecondary }]}>
               {futureClasses.length > 0
-                ? `You've marked all previous classes. Next class begins at ${futureClasses[0].period.startTime}.`
+                ? `You've marked all previous classes. Next class begins at ${formatTime(futureClasses[0].period.startTime, settings.timeFormat || '12h')}.`
                 : "Today's attendance tally is fully logged."}
             </Text>
 

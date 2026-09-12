@@ -12,6 +12,7 @@ import { DayOfWeek, Period } from '../../types';
 import { PeriodModal } from './PeriodModal';
 import { SubjectModal } from './SubjectModal';
 import { Ionicons } from '@expo/vector-icons';
+import { formatTime, formatTimeRange } from '../../utils/timeUtils';
 
 interface WeekGridViewProps {
   onCellPress: (weekday: DayOfWeek, period: Period) => void;
@@ -165,7 +166,7 @@ export const WeekGridView: React.FC<WeekGridViewProps> = ({ onCellPress }) => {
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.periodTime, { color: colors.textTertiary }]}>
-                      {period.startTime}
+                      {formatTime(period.startTime, settings.timeFormat || '12h')}
                     </Text>
                   </TouchableOpacity>
 
@@ -184,7 +185,7 @@ export const WeekGridView: React.FC<WeekGridViewProps> = ({ onCellPress }) => {
                   >
                     <Ionicons name="cafe-outline" size={14} color={colors.cancelled} />
                     <Text style={[styles.breakText, { color: colors.cancelled }]}>
-                      {period.label} ({period.startTime} - {period.endTime})
+                      {period.label} ({formatTimeRange(period.startTime, period.endTime, settings.timeFormat || '12h')})
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -203,10 +204,10 @@ export const WeekGridView: React.FC<WeekGridViewProps> = ({ onCellPress }) => {
                     {period.label}
                   </Text>
                   <Text style={[styles.periodTime, { color: colors.textTertiary }]}>
-                    {period.startTime}
+                    {formatTime(period.startTime, settings.timeFormat || '12h')}
                   </Text>
                   <Text style={[styles.periodTime, { color: colors.textTertiary }]}>
-                    {period.endTime}
+                    {formatTime(period.endTime, settings.timeFormat || '12h')}
                   </Text>
                 </TouchableOpacity>
 

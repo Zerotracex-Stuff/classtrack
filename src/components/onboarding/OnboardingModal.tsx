@@ -15,6 +15,7 @@ import { useApp } from '../../context/AppContext';
 import { DayOfWeek, ThemeMode, AccentColorKey, Subject, Period } from '../../types';
 import { ACCENT_PALETTES } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { formatTimeRange } from '../../utils/timeUtils';
 
 const PRESET_SUBJECT_SUGGESTIONS = [
   { name: 'Mathematics', code: 'MATH101', color: '#4F46E5', icon: 'calculator-outline' },
@@ -330,7 +331,7 @@ export const OnboardingModal: React.FC = () => {
                     <Text style={[styles.periodOrdText, { color: colors.primary }]}>#{idx + 1}</Text>
                     <Text style={[styles.periodLabelText, { color: colors.text }]}>{p.label}</Text>
                     <Text style={[styles.periodTimeText, { color: colors.textSecondary }]}>
-                      {p.startTime} - {p.endTime}
+                      {formatTimeRange(p.startTime, p.endTime, timeFormat)}
                     </Text>
                     {p.isBreak && (
                       <View style={[styles.breakTag, { backgroundColor: colors.primaryContainer }]}>
@@ -530,7 +531,7 @@ export const OnboardingModal: React.FC = () => {
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.assignPeriodLabel, { color: colors.text }]}>{p.label}</Text>
                         <Text style={[styles.assignPeriodTime, { color: colors.textSecondary }]}>
-                          {p.startTime} - {p.endTime}
+                          {formatTimeRange(p.startTime, p.endTime, timeFormat)}
                         </Text>
                       </View>
 

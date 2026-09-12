@@ -13,6 +13,7 @@ import { PeriodModal } from './PeriodModal';
 import { SubjectModal } from './SubjectModal';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../common/Card';
+import { formatTime, formatTimeRange } from '../../utils/timeUtils';
 
 interface DayTimelineViewProps {
   onCellPress: (weekday: DayOfWeek, period: Period) => void;
@@ -198,7 +199,7 @@ export const DayTimelineView: React.FC<DayTimelineViewProps> = ({ onCellPress })
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.breakCardTitle, { color: colors.cancelled }]}>
-                      ☕ {period.label} ({period.startTime} - {period.endTime})
+                      ☕ {period.label} ({formatTimeRange(period.startTime, period.endTime, settings.timeFormat || '12h')})
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -213,9 +214,11 @@ export const DayTimelineView: React.FC<DayTimelineViewProps> = ({ onCellPress })
                   onPress={() => setEditingPeriod(period)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.timeText, { color: colors.text }]}>{period.startTime}</Text>
+                  <Text style={[styles.timeText, { color: colors.text }]}>
+                    {formatTime(period.startTime, settings.timeFormat || '12h')}
+                  </Text>
                   <Text style={[styles.timeSubText, { color: colors.textTertiary }]}>
-                    {period.endTime}
+                    {formatTime(period.endTime, settings.timeFormat || '12h')}
                   </Text>
                 </TouchableOpacity>
 

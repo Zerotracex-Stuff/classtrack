@@ -6,10 +6,12 @@ import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
 import { Ionicons } from '@expo/vector-icons';
 import { Period, Subject, TimetableEntry } from '../../types';
+import { formatTime, formatTimeRange } from '../../utils/timeUtils';
 
 export const NowNextCard: React.FC = () => {
   const { colors } = useTheme();
   const { subjects, periods, entries, getSubject, settings, holidays } = useApp();
+  const timeFormat = settings.timeFormat || '12h';
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update clock every 30 seconds
@@ -158,7 +160,7 @@ export const NowNextCard: React.FC = () => {
                   : activeSubject?.name || 'Free Period / Unassigned'}
               </Text>
               <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                {activePeriod.startTime} - {activePeriod.endTime}
+                {formatTimeRange(activePeriod.startTime, activePeriod.endTime, timeFormat)}
                 {activeRoom ? ` • ${activeRoom}` : ''}
                 {activeTeacher ? ` • 👤 ${activeTeacher}` : ''}
               </Text>
@@ -200,7 +202,7 @@ export const NowNextCard: React.FC = () => {
                 : nextSubject?.name || 'Free Period'}
             </Text>
             <Text style={[styles.nextTime, { color: colors.textSecondary }]}>
-              at {nextPeriod.startTime}
+              at {formatTime(nextPeriod.startTime, timeFormat)}
               {nextRoom ? ` • ${nextRoom}` : ''}
               {nextTeacher ? ` • 👤 ${nextTeacher}` : ''}
             </Text>

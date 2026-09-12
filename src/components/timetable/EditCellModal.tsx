@@ -13,7 +13,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { useApp } from '../../context/AppContext';
 import { DayOfWeek, Period, Subject } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
-
+import { formatTimeRange } from '../../utils/timeUtils';
 import { SubjectModal } from './SubjectModal';
 
 interface EditCellModalProps {
@@ -131,7 +131,7 @@ export const EditCellModal: React.FC<EditCellModalProps> = ({
             <View>
               <Text style={[styles.title, { color: colors.text }]}>Edit Timetable Slot</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                {DAY_NAMES[weekday]} • {period.label} ({period.startTime} - {period.endTime})
+                {DAY_NAMES[weekday]} • {period.label} ({formatTimeRange(period.startTime, period.endTime, settings.timeFormat || '12h')})
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { backgroundColor: colors.surfaceVariant }]}>

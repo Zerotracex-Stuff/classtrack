@@ -14,6 +14,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { useApp } from '../../context/AppContext';
 import { Period } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
+import { formatTime } from '../../utils/timeUtils';
 
 interface PeriodModalProps {
   visible: boolean;
@@ -30,7 +31,7 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({
   editingPeriod,
 }) => {
   const { colors } = useTheme();
-  const { periods, addPeriod, updatePeriod, deletePeriod } = useApp();
+  const { periods, addPeriod, updatePeriod, deletePeriod, settings } = useApp();
 
   const [label, setLabel] = useState('');
   const [startTime, setStartTime] = useState('09:00');
@@ -201,7 +202,7 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({
                     },
                   ]}
                 >
-                  {startTime}
+                  {formatTime(startTime, settings.timeFormat || '12h')}
                 </Text>
               </TouchableOpacity>
 
@@ -234,7 +235,7 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({
                     },
                   ]}
                 >
-                  {endTime}
+                  {formatTime(endTime, settings.timeFormat || '12h')}
                 </Text>
               </TouchableOpacity>
             </View>
