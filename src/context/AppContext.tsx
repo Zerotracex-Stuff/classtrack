@@ -86,7 +86,7 @@ interface AppContextType {
   updateSettings: (partial: Partial<UserSettings>) => Promise<void>;
   resetDatabase: () => Promise<void>;
   importBackup: (jsonString: string) => Promise<void>;
-  sendTestAlert: () => Promise<void>;
+  sendTestAlert: () => Promise<string>;
   scheduleDelayedTestAlert: (seconds?: number) => Promise<string>;
 }
 

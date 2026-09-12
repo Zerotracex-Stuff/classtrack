@@ -142,30 +142,45 @@ export const syncLauncherHomeWidgets = async (payload: {
       try {
         const isSupported = await HomeWidget.isSupported();
         if (isSupported) {
-          // 1. Next/Active Class Widget
-          await HomeWidget.updateWidget('NextClassWidget', {
+          // 1. Next/Active Class Widget (Modern Card look)
+          const classMetaParts = [];
+          if (nextClassTime) classMetaParts.push(`⏰ ${nextClassTime}`);
+          if (nextClassRoom) classMetaParts.push(`📍 ${nextClassRoom}`);
+          if (nextClassTeacher) classMetaParts.push(`👤 ${nextClassTeacher}`);
+
+          await (HomeWidget as any).updateWidget('NextClassWidget', {
             id: 'NextClassWidget',
-            title: `${nextClassName} (${nextClassCountdown})`,
-            content: `⏰ ${nextClassTime} ${nextClassRoom ? '📍 ' + nextClassRoom : ''} ${nextClassTeacher ? '👨‍🏫 ' + nextClassTeacher : ''}`.trim(),
-            backgroundColor: '#4F46E5',
+            tag: '⏰ NEXT CLASS',
+            badge: nextClassCountdown,
+            badgeColor: '#4F46E5',
+            title: nextClassName,
+            content: classMetaParts.join('  •  ') || 'Tap to view timetable',
+            backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
           });
 
-          // 5. Attendance Health Widget
-          await HomeWidget.updateWidget('AttendanceWidget', {
+          // 2. Attendance Health Widget (Modern Card look)
+          const attBadge = overallPct >= target ? 'HEALTHY 🛡️' : 'SHORTAGE 🚨';
+          await (HomeWidget as any).updateWidget('AttendanceWidget', {
             id: 'AttendanceWidget',
-            title: `Attendance: ${overallPct}% (${attendanceStatus})`,
-            content: `Attended ${attended}/${held} lectures • ${safeBunks} safe bunks remaining`,
-            backgroundColor: overallPct >= target ? '#059669' : '#DC2626',
+            tag: '🛡️ ATTENDANCE',
+            badge: attBadge,
+            badgeColor: overallPct >= target ? '#059669' : '#DC2626',
+            title: `${overallPct}% Overall Attendance`,
+            content: `Attended ${attended}/${held} lectures • ~${safeBunks} safe bunks left`,
+            backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
           });
 
-          // 6. Nearest Exam Widget
-          await HomeWidget.updateWidget('ExamsWidget', {
+          // 3. Nearest Exam Widget (Modern Card look)
+          await (HomeWidget as any).updateWidget('ExamsWidget', {
             id: 'ExamsWidget',
-            title: `Next Exam: ${nearestExamTitle}`,
-            content: `${nearestExamDate} • ${nearestExamCountdown}`,
-            backgroundColor: '#D97706',
+            tag: '📝 UPCOMING EXAM',
+            badge: nearestExamCountdown,
+            badgeColor: '#D97706',
+            title: nearestExamTitle,
+            content: `📅 ${nearestExamDate} • Tap to view all exams`,
+            backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
           });
         }

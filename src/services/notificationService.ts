@@ -275,9 +275,13 @@ export async function getScheduledNotificationCount(): Promise<number> {
 /**
  * Fires an instant test notification in 1 second to verify setup on phone
  */
-export async function sendTestNotification(): Promise<void> {
-  await initNotifications();
-  await Notifications.scheduleNotificationAsync({
+export async function sendTestNotification(): Promise<string> {
+  const granted = await initNotifications();
+  if (!granted) {
+    throw new Error('Notification permission not granted. Please allow notifications in Android Settings > Apps > ClassTrack.');
+  }
+
+  const notifId = await Notifications.scheduleNotificationAsync({
     content: {
       title: '🔔 ClassTrack Notification Active',
       body: 'Notifications are working! Pre-class & unmarked attendance reminders will arrive automatically.',
@@ -290,6 +294,8 @@ export async function sendTestNotification(): Promise<void> {
       channelId: CHANNEL_CLASSES,
     },
   });
+  console.log('[NotificationService] Scheduled instant test alert ID:', notifId);
+  return notifId;
 }
 
 /**
@@ -297,8 +303,28 @@ export async function sendTestNotification(): Promise<void> {
  * to verify notifications work when the app is removed from recent apps / killed.
  */
 export async function scheduleDelayedNotification(seconds: number = 60): Promise<string> {
-  await initNotifications();
-  return await Notifications.scheduleNotificationAsync({
+  const granted = await initNotifications();
+  if (!granted) {
+    throw new Error('Notification permission not granted. Please allow notifications in Android Settings > Apps > ClassTrack.');
+  }
+
+  // Verify channel exists
+  if (Platform.OS === 'android') {
+    const channel = await Notifications.getNotificationChannelAsync(CHANNEL_CLASSES);
+    if (!channel) {
+      await Notifications.setNotificationChannelAsync(CHANNEL_CLASSES, {
+        name: 'Upcoming Class Reminders',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#6366F1',
+        sound: 'default',
+        enableVibrate: true,
+        showBadge: true,
+      });
+    }
+  }
+
+  const notifId = await Notifications.scheduleNotificationAsync({
     content: {
       title: '⏰ 1-Minute Background Alert Delivered!',
       body: 'Success! ClassTrack successfully delivered this reminder while the app was closed.',
@@ -312,5 +338,8 @@ export async function scheduleDelayedNotification(seconds: number = 60): Promise
       channelId: CHANNEL_CLASSES,
     },
   });
+
+  console.log(`[NotificationService] Scheduled delayed test alert ID: ${notifId} for +${seconds}s`);
+  return notifId;
 }
 

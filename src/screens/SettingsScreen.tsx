@@ -272,8 +272,8 @@ export const SettingsScreen: React.FC = () => {
   const handleTestAlert = async () => {
     try {
       setTestingAlert(true);
-      await sendTestAlert();
-      Alert.alert('Alert Sent', 'Check your phone notifications in 1 second!');
+      const id = await sendTestAlert();
+      Alert.alert('Alert Sent 🔔', `Test notification queued (ID: ${id || 'ok'}).\nCheck your notification drawer in 1 second!`);
     } catch (err: any) {
       Alert.alert('Notification Error', err?.message || 'Could not send test notification. Please verify notification permissions in Android Settings.');
     } finally {
@@ -284,10 +284,10 @@ export const SettingsScreen: React.FC = () => {
   const handle1MinTestAlert = async () => {
     try {
       setTestingAlert(true);
-      await scheduleDelayedTestAlert(60);
+      const id = await scheduleDelayedTestAlert(60);
       Alert.alert(
         '⏱️ Test Scheduled in 60 Seconds',
-        'Notification scheduled for 1 minute from now!\n\n👉 You can now swipe ClassTrack away from Recent Apps (close it). The notification will arrive even with the app completely closed.',
+        `Notification scheduled for 1 minute from now! (Ref: ${id || 'registered'})\n\n👉 Important Android Notes:\n1. If battery optimization or Doze is on, Android can delay background alarms.\n2. Ensure "Alarms & Reminders" is allowed for ClassTrack in Settings.\n3. Now you can remove the app from recent apps. Wait 60-90s for Android to deliver it.`,
         [{ text: 'Got it!' }]
       );
     } catch (err: any) {

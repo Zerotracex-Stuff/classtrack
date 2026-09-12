@@ -40,7 +40,7 @@ index db85c43..99a4e52 100644
              android:permission="android.permission.BIND_REMOTEVIEWS"
              android:exported="false" />
 diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java
-index 6092f88..fa26515 100644
+index 6092f88..76a4511 100644
 --- a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java
 +++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java
 @@ -15,6 +15,10 @@ import android.widget.RemoteViews;
@@ -54,7 +54,25 @@ index 6092f88..fa26515 100644
  import com.facebook.react.bridge.Arguments;
  import com.facebook.react.bridge.Promise;
  import com.facebook.react.bridge.ReactApplicationContext;
-@@ -113,11 +117,20 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -91,12 +95,15 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+         try {
+             String title = data.getString("title");
+             String content = data.getString("content");
+-            String backgroundColor = data.hasKey("backgroundColor") ? data.getString("backgroundColor") : "#2196F3";
++            String backgroundColor = data.hasKey("backgroundColor") ? data.getString("backgroundColor") : "#0F172A";
+             String textColor = data.hasKey("textColor") ? data.getString("textColor") : "#FFFFFF";
++            String tag = data.hasKey("tag") ? data.getString("tag") : null;
++            String badge = data.hasKey("badge") ? data.getString("badge") : null;
++            String badgeColor = data.hasKey("badgeColor") ? data.getString("badgeColor") : null;
+             String imageUrl = data.hasKey("imageUrl") ? data.getString("imageUrl") : null;
+             String actionUrl = data.hasKey("actionUrl") ? data.getString("actionUrl") : null;
+             
+-            WidgetData widgetData = new WidgetData(widgetId, title, content, backgroundColor, textColor, imageUrl, actionUrl);
++            WidgetData widgetData = new WidgetData(widgetId, title, content, backgroundColor, textColor, tag, badge, badgeColor, imageUrl, actionUrl);
+             this.widgetData.put(widgetId, widgetData);
+             
+             updateWidgetViews(widgetId);
+@@ -113,11 +120,22 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
              widgetData.remove(widgetId);
              
              AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(reactContext);
@@ -73,11 +91,13 @@ index 6092f88..fa26515 100644
 +                RemoteViews views = new RemoteViews(reactContext.getPackageName(), R.layout.home_widget);
 +                views.setTextViewText(R.id.widget_title, "");
 +                views.setTextViewText(R.id.widget_content, "");
++                views.setTextViewText(R.id.widget_tag, "");
++                views.setTextViewText(R.id.widget_badge, "");
 +                appWidgetManager.updateAppWidget(appWidgetId, views);
              }
              
              promise.resolve(null);
-@@ -165,7 +178,15 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -165,7 +183,15 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
  
      private void updateWidgetViews(String widgetId) {
          AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(reactContext);
@@ -94,7 +114,43 @@ index 6092f88..fa26515 100644
          int[] appWidgetIds = appWidgetManager.getAppWidgetIds(componentName);
          
          WidgetData data = widgetData.get(widgetId);
-@@ -190,7 +211,7 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -178,19 +204,38 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+             views.setTextViewText(R.id.widget_title, data.title);
+             views.setTextViewText(R.id.widget_content, data.content);
+ 
+-            // Set colors
++            // Default tags if not provided
++            String displayTag = data.tag;
++            if (displayTag == null || displayTag.isEmpty()) {
++                if ("AttendanceWidget".equals(widgetId)) {
++                    displayTag = "🛡️ ATTENDANCE";
++                } else if ("ExamsWidget".equals(widgetId)) {
++                    displayTag = "📝 UPCOMING EXAM";
++                } else {
++                    displayTag = "⏰ NEXT CLASS";
++                }
++            }
++            views.setTextViewText(R.id.widget_tag, displayTag);
++
++            // Set badge text
++            if (data.badge != null && !data.badge.isEmpty()) {
++                views.setViewVisibility(R.id.widget_badge, android.view.View.VISIBLE);
++                views.setTextViewText(R.id.widget_badge, data.badge);
++            } else {
++                views.setViewVisibility(R.id.widget_badge, android.view.View.GONE);
++            }
++            
++            // Set text colors
+             try {
+-                int bgColor = Color.parseColor(data.backgroundColor);
+                 int textColor = Color.parseColor(data.textColor);
+                 views.setInt(R.id.widget_title, "setTextColor", textColor);
+-                views.setInt(R.id.widget_content, "setTextColor", textColor);
+-            } catch (IllegalArgumentException e) {
+-                Log.w(TAG, "Invalid color format", e);
++            } catch (Exception e) {
++                // Keep default
+             }
              
              // Set click intent
              if (data.actionUrl != null) {
@@ -103,6 +159,38 @@ index 6092f88..fa26515 100644
                  clickIntent.setAction("WIDGET_CLICK");
                  clickIntent.putExtra("widgetId", widgetId);
                  clickIntent.putExtra("actionUrl", data.actionUrl);
+@@ -198,6 +243,7 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+                 
+                 PendingIntent pendingIntent = PendingIntent.getBroadcast(reactContext, 0, clickIntent, 
+                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
++                views.setOnClickPendingIntent(R.id.widget_container, pendingIntent);
+                 views.setOnClickPendingIntent(R.id.widget_title, pendingIntent);
+                 views.setOnClickPendingIntent(R.id.widget_content, pendingIntent);
+             }
+@@ -239,16 +285,22 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+         String content;
+         String backgroundColor;
+         String textColor;
++        String tag;
++        String badge;
++        String badgeColor;
+         String imageUrl;
+         String actionUrl;
+ 
+         WidgetData(String widgetId, String title, String content, String backgroundColor, 
+-                  String textColor, String imageUrl, String actionUrl) {
++                  String textColor, String tag, String badge, String badgeColor, String imageUrl, String actionUrl) {
+             this.widgetId = widgetId;
+             this.title = title;
+             this.content = content;
+             this.backgroundColor = backgroundColor;
+             this.textColor = textColor;
++            this.tag = tag;
++            this.badge = badge;
++            this.badgeColor = badgeColor;
+             this.imageUrl = imageUrl;
+             this.actionUrl = actionUrl;
+         }
 diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/AttendanceWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/AttendanceWidgetProvider.java
 new file mode 100644
 index 0000000..acb277d
@@ -123,6 +211,149 @@ index 0000000..9bb771a
 +
 +public class ExamsWidgetProvider extends HomeWidgetProvider {
 +}
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_background.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_background.xml
+index 2812133..de2e7cc 100644
+--- a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_background.xml
++++ b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_background.xml
+@@ -1,9 +1,9 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <shape xmlns:android="http://schemas.android.com/apk/res/android"
+     android:shape="rectangle">
+-    <solid android:color="#2196F3" />
+-    <corners android:radius="12dp" />
++    <solid android:color="#0F172A" />
++    <corners android:radius="22dp" />
+     <stroke
+-        android:width="1dp"
+-        android:color="#1976D2" />
++        android:width="1.5dp"
++        android:color="#334155" />
+ </shape>
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_badge_background.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_badge_background.xml
+new file mode 100644
+index 0000000..d25146a
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_badge_background.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shape="rectangle">
++    <solid android:color="#4F46E5" />
++    <corners android:radius="8dp" />
++</shape>
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_tag_background.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_tag_background.xml
+new file mode 100644
+index 0000000..0d9c602
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_tag_background.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shape="rectangle">
++    <solid android:color="#1E293B" />
++    <corners android:radius="8dp" />
++</shape>
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/layout/home_widget.xml b/node_modules/react-native-home-widget/android/src/main/res/layout/home_widget.xml
+index 5fd6f60..b4b18fb 100644
+--- a/node_modules/react-native-home-widget/android/src/main/res/layout/home_widget.xml
++++ b/node_modules/react-native-home-widget/android/src/main/res/layout/home_widget.xml
+@@ -1,40 +1,86 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/widget_container"
+     android:layout_width="match_parent"
+     android:layout_height="match_parent"
+     android:background="@drawable/widget_background"
+     android:orientation="vertical"
+     android:padding="16dp">
+ 
++    <!-- Top Header Row: Category Badge + Status Badge -->
++    <LinearLayout
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:orientation="horizontal"
++        android:gravity="center_vertical"
++        android:layout_marginBottom="8dp">
++
++        <!-- App / Category Tag Pill -->
++        <TextView
++            android:id="@+id/widget_tag"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:text="CLASSTRACK"
++            android:textColor="#A5B4FC"
++            android:textSize="10sp"
++            android:textStyle="bold"
++            android:background="@drawable/widget_tag_background"
++            android:paddingStart="8dp"
++            android:paddingEnd="8dp"
++            android:paddingTop="4dp"
++            android:paddingBottom="4dp" />
++
++        <View
++            android:layout_width="0dp"
++            android:layout_height="1dp"
++            android:layout_weight="1" />
++
++        <!-- Status / Countdown Pill -->
++        <TextView
++            android:id="@+id/widget_badge"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:text="LIVE"
++            android:textColor="#FFFFFF"
++            android:textSize="10sp"
++            android:textStyle="bold"
++            android:background="@drawable/widget_badge_background"
++            android:paddingStart="8dp"
++            android:paddingEnd="8dp"
++            android:paddingTop="4dp"
++            android:paddingBottom="4dp" />
++    </LinearLayout>
++
++    <!-- Main Title / Subject Name (Large, Crisp & Bold) -->
+     <TextView
+         android:id="@+id/widget_title"
+         android:layout_width="match_parent"
+         android:layout_height="wrap_content"
+-        android:text="Widget Title"
+-        android:textColor="@android:color/white"
++        android:text="Class Name"
++        android:textColor="#FFFFFF"
+         android:textSize="16sp"
+         android:textStyle="bold"
+-        android:maxLines="1"
++        android:maxLines="2"
+         android:ellipsize="end" />
+ 
++    <!-- Subtitle / Metadata Details (Time, Room, Teacher) -->
+     <TextView
+         android:id="@+id/widget_content"
+         android:layout_width="match_parent"
+         android:layout_height="0dp"
+         android:layout_weight="1"
+-        android:text="Widget Content"
+-        android:textColor="@android:color/white"
+-        android:textSize="14sp"
++        android:text="⏰ 09:00 - 10:00 • 📍 Room 101"
++        android:textColor="#94A3B8"
++        android:textSize="12sp"
+         android:maxLines="3"
+         android:ellipsize="end"
+-        android:layout_marginTop="8dp" />
++        android:layout_marginTop="6dp" />
+ 
++    <!-- Invisible ImageView kept for backwards compatibility -->
+     <ImageView
+         android:id="@+id/widget_image"
+         android:layout_width="match_parent"
+-        android:layout_height="60dp"
+-        android:layout_marginTop="8dp"
+-        android:scaleType="centerCrop"
++        android:layout_height="0dp"
+         android:visibility="gone" />
+ 
+ </LinearLayout>
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml b/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml
 index c5c5d7a..79c2c05 100644
 --- a/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml
