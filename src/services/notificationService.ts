@@ -291,3 +291,26 @@ export async function sendTestNotification(): Promise<void> {
     },
   });
 }
+
+/**
+ * Schedules a test notification after specified seconds (default 60s)
+ * to verify notifications work when the app is removed from recent apps / killed.
+ */
+export async function scheduleDelayedNotification(seconds: number = 60): Promise<string> {
+  await initNotifications();
+  return await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '⏰ 1-Minute Background Alert Delivered!',
+      body: 'Success! ClassTrack successfully delivered this reminder while the app was closed.',
+      sound: 'default',
+      priority: Notifications.AndroidNotificationPriority.HIGH,
+      data: { type: 'background_kill_test' },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: seconds,
+      channelId: CHANNEL_CLASSES,
+    },
+  });
+}
+

@@ -1,17 +1,71 @@
+diff --git a/node_modules/react-native-home-widget/android/src/main/AndroidManifest.xml b/node_modules/react-native-home-widget/android/src/main/AndroidManifest.xml
+index db85c43..99a4e52 100644
+--- a/node_modules/react-native-home-widget/android/src/main/AndroidManifest.xml
++++ b/node_modules/react-native-home-widget/android/src/main/AndroidManifest.xml
+@@ -7,6 +7,7 @@
+ 
+     <application>
+         <receiver android:name=".widget.HomeWidgetProvider"
++            android:label="ClassTrack: Next Class"
+             android:exported="true">
+             <intent-filter>
+                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+@@ -16,6 +17,28 @@
+                 android:resource="@xml/home_widget_info" />
+         </receiver>
+ 
++        <receiver android:name=".widget.AttendanceWidgetProvider"
++            android:label="ClassTrack: Attendance Health"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
++            </intent-filter>
++            <meta-data
++                android:name="android.appwidget.provider"
++                android:resource="@xml/attendance_widget_info" />
++        </receiver>
++
++        <receiver android:name=".widget.ExamsWidgetProvider"
++            android:label="ClassTrack: Upcoming Exam"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
++            </intent-filter>
++            <meta-data
++                android:name="android.appwidget.provider"
++                android:resource="@xml/exams_widget_info" />
++        </receiver>
++
+         <service android:name=".widget.HomeWidgetService"
+             android:permission="android.permission.BIND_REMOTEVIEWS"
+             android:exported="false" />
 diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java
-index 6092f88..332a5d8 100644
+index 6092f88..fa26515 100644
 --- a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java
 +++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java
-@@ -15,6 +15,8 @@ import android.widget.RemoteViews;
+@@ -15,6 +15,10 @@ import android.widget.RemoteViews;
  import androidx.annotation.NonNull;
  import androidx.annotation.Nullable;
  
 +import com.reactnativehomewidget.widget.HomeWidgetProvider;
++import com.reactnativehomewidget.widget.AttendanceWidgetProvider;
++import com.reactnativehomewidget.widget.ExamsWidgetProvider;
 +
  import com.facebook.react.bridge.Arguments;
  import com.facebook.react.bridge.Promise;
  import com.facebook.react.bridge.ReactApplicationContext;
-@@ -117,7 +119,10 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -113,11 +117,20 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+             widgetData.remove(widgetId);
+             
+             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(reactContext);
+-            ComponentName componentName = new ComponentName(reactContext, HomeWidgetProvider.class);
++            Class<?> providerClass = HomeWidgetProvider.class;
++            if ("AttendanceWidget".equals(widgetId)) {
++                providerClass = AttendanceWidgetProvider.class;
++            } else if ("ExamsWidget".equals(widgetId)) {
++                providerClass = ExamsWidgetProvider.class;
++            }
++            ComponentName componentName = new ComponentName(reactContext, providerClass);
              int[] appWidgetIds = appWidgetManager.getAppWidgetIds(componentName);
              
              for (int appWidgetId : appWidgetIds) {
@@ -23,6 +77,102 @@ index 6092f88..332a5d8 100644
              }
              
              promise.resolve(null);
+@@ -165,7 +178,15 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+ 
+     private void updateWidgetViews(String widgetId) {
+         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(reactContext);
+-        ComponentName componentName = new ComponentName(reactContext, HomeWidgetProvider.class);
++        
++        Class<?> providerClass = HomeWidgetProvider.class;
++        if ("AttendanceWidget".equals(widgetId)) {
++            providerClass = AttendanceWidgetProvider.class;
++        } else if ("ExamsWidget".equals(widgetId)) {
++            providerClass = ExamsWidgetProvider.class;
++        }
++        
++        ComponentName componentName = new ComponentName(reactContext, providerClass);
+         int[] appWidgetIds = appWidgetManager.getAppWidgetIds(componentName);
+         
+         WidgetData data = widgetData.get(widgetId);
+@@ -190,7 +211,7 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+             
+             // Set click intent
+             if (data.actionUrl != null) {
+-                Intent clickIntent = new Intent(reactContext, HomeWidgetProvider.class);
++                Intent clickIntent = new Intent(reactContext, providerClass);
+                 clickIntent.setAction("WIDGET_CLICK");
+                 clickIntent.putExtra("widgetId", widgetId);
+                 clickIntent.putExtra("actionUrl", data.actionUrl);
+diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/AttendanceWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/AttendanceWidgetProvider.java
+new file mode 100644
+index 0000000..acb277d
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/AttendanceWidgetProvider.java
+@@ -0,0 +1,4 @@
++package com.reactnativehomewidget.widget;
++
++public class AttendanceWidgetProvider extends HomeWidgetProvider {
++}
+diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/ExamsWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/ExamsWidgetProvider.java
+new file mode 100644
+index 0000000..9bb771a
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/ExamsWidgetProvider.java
+@@ -0,0 +1,4 @@
++package com.reactnativehomewidget.widget;
++
++public class ExamsWidgetProvider extends HomeWidgetProvider {
++}
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml b/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml
+index c5c5d7a..79c2c05 100644
+--- a/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml
++++ b/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml
+@@ -1,5 +1,7 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="app_name">React Native Home Widget</string>
+-    <string name="app_widget_description">React Native Home Widget</string>
++    <string name="app_name">ClassTrack</string>
++    <string name="app_widget_description">Next / Active Class Widget</string>
++    <string name="attendance_widget_description">Attendance Health Widget</string>
++    <string name="exams_widget_description">Upcoming Exam Countdown Widget</string>
+ </resources>
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/attendance_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/attendance_widget_info.xml
+new file mode 100644
+index 0000000..0742365
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/xml/attendance_widget_info.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
++    android:description="@string/attendance_widget_description"
++    android:initialKeyguardLayout="@layout/home_widget"
++    android:initialLayout="@layout/home_widget"
++    android:minWidth="140dp"
++    android:minHeight="110dp"
++    android:resizeMode="horizontal|vertical"
++    android:targetCellWidth="2"
++    android:targetCellHeight="2"
++    android:updatePeriodMillis="0"
++    android:widgetCategory="home_screen" />
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/exams_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/exams_widget_info.xml
+new file mode 100644
+index 0000000..3da7481
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/xml/exams_widget_info.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
++    android:description="@string/exams_widget_description"
++    android:initialKeyguardLayout="@layout/home_widget"
++    android:initialLayout="@layout/home_widget"
++    android:minWidth="250dp"
++    android:minHeight="70dp"
++    android:resizeMode="horizontal|vertical"
++    android:targetCellWidth="4"
++    android:targetCellHeight="1"
++    android:updatePeriodMillis="0"
++    android:widgetCategory="home_screen" />
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/home_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/home_widget_info.xml
 index f359308..a1b0abd 100644
 --- a/node_modules/react-native-home-widget/android/src/main/res/xml/home_widget_info.xml

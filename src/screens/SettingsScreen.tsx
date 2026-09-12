@@ -121,6 +121,7 @@ export const SettingsScreen: React.FC = () => {
     exams,
     holidays,
     sendTestAlert,
+    scheduleDelayedTestAlert,
   } = useApp();
 
   const [studentName, setStudentName] = useState(settings.studentName || '');
@@ -275,6 +276,22 @@ export const SettingsScreen: React.FC = () => {
       Alert.alert('Alert Sent', 'Check your phone notifications in 1 second!');
     } catch (err: any) {
       Alert.alert('Notification Error', err?.message || 'Could not send test notification. Please verify notification permissions in Android Settings.');
+    } finally {
+      setTestingAlert(false);
+    }
+  };
+
+  const handle1MinTestAlert = async () => {
+    try {
+      setTestingAlert(true);
+      await scheduleDelayedTestAlert(60);
+      Alert.alert(
+        '⏱️ Test Scheduled in 60 Seconds',
+        'Notification scheduled for 1 minute from now!\n\n👉 You can now swipe ClassTrack away from Recent Apps (close it). The notification will arrive even with the app completely closed.',
+        [{ text: 'Got it!' }]
+      );
+    } catch (err: any) {
+      Alert.alert('Notification Error', err?.message || 'Could not schedule test alert. Please verify notification permissions.');
     } finally {
       setTestingAlert(false);
     }
@@ -665,21 +682,34 @@ export const SettingsScreen: React.FC = () => {
             >
               <Ionicons name="paper-plane-outline" size={16} color={colors.primary} />
               <Text style={[styles.backupBtnText, { color: colors.primary }]}>
-                {testingAlert ? 'Sending...' : 'Test Alert'}
+                {testingAlert ? 'Sending...' : 'Instant Test (1s)'}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.backupBtn, { backgroundColor: colors.surfaceVariant, marginLeft: 10 }]}
-              onPress={handleResyncReminders}
+              style={[styles.backupBtn, { backgroundColor: '#F59E0B18', borderColor: '#F59E0B', borderWidth: 1, marginLeft: 10 }]}
+              onPress={handle1MinTestAlert}
+              disabled={testingAlert}
               activeOpacity={0.7}
             >
-              <Ionicons name="refresh-outline" size={16} color={colors.primary} />
-              <Text style={[styles.backupBtnText, { color: colors.primary }]}>
-                Resync Reminders
+              <Ionicons name="time-outline" size={16} color="#D97706" />
+              <Text style={[styles.backupBtnText, { color: '#D97706' }]}>
+                Test in 1 Min ⏱️
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Resync Reminders */}
+          <TouchableOpacity
+            style={[styles.backupBtn, { backgroundColor: colors.surfaceVariant, marginTop: 10, width: '100%' }]}
+            onPress={handleResyncReminders}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="refresh-outline" size={16} color={colors.primary} />
+            <Text style={[styles.backupBtnText, { color: colors.primary }]}>
+              Resync All Timetable Reminders (Next 14 Days)
+            </Text>
+          </TouchableOpacity>
         </Card>
 
         {/* File Backup & Restore */}

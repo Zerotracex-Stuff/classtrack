@@ -18,7 +18,7 @@ import {
   AppDataPayload,
 } from '../database/storage';
 import { format } from 'date-fns';
-import { scheduleAllReminders, sendTestNotification } from '../services/notificationService';
+import { scheduleAllReminders, sendTestNotification, scheduleDelayedNotification } from '../services/notificationService';
 import { syncLauncherHomeWidgets } from '../services/homeWidgetService';
 
 export interface AttendanceStats {
@@ -87,6 +87,7 @@ interface AppContextType {
   resetDatabase: () => Promise<void>;
   importBackup: (jsonString: string) => Promise<void>;
   sendTestAlert: () => Promise<void>;
+  scheduleDelayedTestAlert: (seconds?: number) => Promise<string>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -575,6 +576,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetDatabase,
         importBackup,
         sendTestAlert: sendTestNotification,
+        scheduleDelayedTestAlert: scheduleDelayedNotification,
       }}
     >
       {children}

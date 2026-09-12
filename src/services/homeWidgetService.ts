@@ -137,68 +137,6 @@ export const syncLauncherHomeWidgets = async (payload: {
       }
     }
 
-    // 4. Day Schedule Horizontal Math
-    const horizontalItems = todayEntries.map(item => {
-      const room = item.entry.roomOverride || item.subject?.room;
-      return `[${item.period?.startTime}] ${item.subject?.name}${room ? ` (${room})` : ''}`;
-    });
-    const dayScheduleHorizontalStr = horizontalItems.length > 0 ? horizontalItems.join('  ➔  ') : 'No classes scheduled for today ☕';
-
-    // 5. Day Schedule Vertical Math
-    const verticalItems = todayEntries.map(item => {
-      const teacher = item.entry.teacher || item.subject?.teacher;
-      const room = item.entry.roomOverride || item.subject?.room;
-      const meta = [teacher ? `👨‍🏫 ${teacher}` : '', room ? `📍 ${room}` : ''].filter(Boolean).join(' • ');
-      return `• ${item.period?.startTime}-${item.period?.endTime}: ${item.subject?.name}${meta ? ` (${meta})` : ''}`;
-    });
-    const dayScheduleVerticalStr = verticalItems.length > 0 ? verticalItems.join('\n') : 'No classes scheduled for today ☕';
-
-    // 6. Weekly Schedule Summary Math (All periods with subject names & customizable fields)
-    const showRooms = settings.weeklyWidgetShowRooms ?? false;
-    const showTeachers = settings.weeklyWidgetShowTeachers ?? false;
-    const showTimes = settings.weeklyWidgetShowTimes ?? true;
-    const includeWeekends = settings.weeklyWidgetIncludeWeekends ?? false;
-
-    const daysToInclude = includeWeekends ? [0, 1, 2, 3, 4, 5, 6] : [0, 1, 2, 3, 4];
-    const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-    const weeklyLines = daysToInclude.map(dayIdx => {
-      const dayName = weekdayNames[dayIdx];
-      const dayEntries = entries
-        .filter(e => e.weekday === dayIdx)
-        .map(entry => {
-          const period = periods.find(p => p.id === entry.periodId);
-          const subject = subjects.find(s => s.id === entry.subjectId);
-          return { entry, period, subject };
-        })
-        .filter(item => item.subject)
-        .sort((a, b) => (a.period?.startTime || '').localeCompare(b.period?.startTime || ''));
-
-      if (dayEntries.length === 0) {
-        return `${dayName}: Off`;
-      }
-
-      const periodStrs = dayEntries.map(item => {
-        let str = item.subject?.name || 'Class';
-        if (showTimes && item.period) {
-          str = `[${item.period.startTime}] ${str}`;
-        }
-        if (showRooms) {
-          const room = item.entry.roomOverride || item.subject?.room;
-          if (room) str += ` (${room})`;
-        }
-        if (showTeachers) {
-          const teacher = item.entry.teacher || item.subject?.teacher;
-          if (teacher) str += ` 👨‍🏫${teacher}`;
-        }
-        return str;
-      });
-
-      return `${dayName}: ${periodStrs.join(', ')}`;
-    });
-
-    const weeklyScheduleStr = weeklyLines.join('\n');
-
     // Save items to Native Shared Storage for Launcher Widgets
     if (Platform.OS !== 'web') {
       try {
@@ -210,33 +148,6 @@ export const syncLauncherHomeWidgets = async (payload: {
             title: `${nextClassName} (${nextClassCountdown})`,
             content: `⏰ ${nextClassTime} ${nextClassRoom ? '📍 ' + nextClassRoom : ''} ${nextClassTeacher ? '👨‍🏫 ' + nextClassTeacher : ''}`.trim(),
             backgroundColor: '#4F46E5',
-            textColor: '#FFFFFF',
-          });
-
-          // 2. Day Schedule Horizontal Widget
-          await HomeWidget.updateWidget('DayScheduleHorizontalWidget', {
-            id: 'DayScheduleHorizontalWidget',
-            title: `Today's Classes (${todayEntries.length}) ➔`,
-            content: dayScheduleHorizontalStr,
-            backgroundColor: '#2563EB',
-            textColor: '#FFFFFF',
-          });
-
-          // 3. Day Schedule Vertical Widget
-          await HomeWidget.updateWidget('DayScheduleVerticalWidget', {
-            id: 'DayScheduleVerticalWidget',
-            title: `Timeline • ${format(new Date(), 'EEEE, MMM d')}`,
-            content: dayScheduleVerticalStr,
-            backgroundColor: '#0F172A',
-            textColor: '#FFFFFF',
-          });
-
-          // 4. Weekly Schedule Timetable Widget
-          await HomeWidget.updateWidget('WeeklyScheduleWidget', {
-            id: 'WeeklyScheduleWidget',
-            title: `Weekly Schedule Overview`,
-            content: weeklyScheduleStr,
-            backgroundColor: '#7C3AED',
             textColor: '#FFFFFF',
           });
 

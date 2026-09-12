@@ -24,9 +24,6 @@ export interface WidgetItem {
 export const ALL_WIDGET_DEFINITIONS: Omit<WidgetItem, 'enabled'>[] = [
   { id: 'holiday_banner', name: 'Active Holiday Alert', description: 'Displays current vacation break notice', icon: 'sunny-outline' },
   { id: 'now_next', name: 'Happening Now / Next Class', description: 'Live active lecture countdown timer', icon: 'time-outline' },
-  { id: 'day_horizontal', name: "Today's Classes (Horizontal Chips)", description: 'Side-by-side horizontal period card deck', icon: 'swap-horizontal-outline' },
-  { id: 'today_schedule', name: "Today's Class Timeline (Vertical)", description: 'Chronological vertical timeline of period slots', icon: 'list-outline' },
-  { id: 'weekly_grid', name: 'Weekly Schedule Overview Grid', description: 'Mon–Sun weekly class count overview grid', icon: 'calendar-outline' },
   { id: 'swipe_deck', name: '1-Swipe Attendance Deck', description: 'Gesture-driven attendance swipe cards', icon: 'albums-outline' },
   { id: 'quick_actions', name: 'Quick Action Shortcuts', description: '1-tap QR share, schedule, bunks & launcher', icon: 'grid-outline' },
   { id: 'attendance_health', name: 'Attendance Health & Gauge', description: 'Overall percentage & safe bunk margin', icon: 'analytics-outline' },

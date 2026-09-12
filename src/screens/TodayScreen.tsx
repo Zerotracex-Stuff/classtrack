@@ -108,7 +108,9 @@ export const TodayScreen: React.FC = () => {
     return 'Good evening';
   };
 
-  const activeWidgetOrder = settings.widgetOrder || DEFAULT_WIDGET_ORDER;
+  const activeWidgetOrder = (settings.widgetOrder || DEFAULT_WIDGET_ORDER).filter(
+    id => !['day_horizontal', 'today_schedule', 'weekly_grid'].includes(id)
+  );
 
   const renderWidget = (widgetId: string) => {
     switch (widgetId) {
@@ -138,103 +140,6 @@ export const TodayScreen: React.FC = () => {
 
       case 'now_next':
         return <NowNextCard key="now_next" />;
-
-      case 'day_horizontal':
-        return (
-          <View key="day_horizontal" style={styles.sectionMargin}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Today's Classes (Horizontal)</Text>
-              <TouchableOpacity onPress={() => setActiveTab('timetable')} activeOpacity={0.7}>
-                <Text style={[styles.seeAllText, { color: colors.primary }]}>Full Timetable →</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                {todayClasses.length > 0 ? (
-                  todayClasses.map(({ entry, period, subject, log }) => (
-                    <Card
-                      key={entry.periodId}
-                      style={{
-                        padding: 12,
-                        borderRadius: 16,
-                        backgroundColor: colors.card,
-                        borderColor: subject?.color || colors.primary,
-                        borderLeftWidth: 4,
-                        minWidth: 140,
-                      }}
-                    >
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: colors.primary }}>
-                        ⏰ {period?.startTime} - {period?.endTime}
-                      </Text>
-                      <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text, marginTop: 4 }} numberOfLines={1}>
-                        {subject?.name}
-                      </Text>
-                      <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
-                        📍 {entry.roomOverride || subject?.room || 'Main Room'}
-                      </Text>
-                      {log ? (
-                        <View style={[styles.logBadge, { marginTop: 6, backgroundColor: log.status === 'present' ? colors.presentBg : colors.absentBg }]}>
-                          <Text style={[styles.logBadgeText, { color: log.status === 'present' ? colors.present : colors.absent }]}>
-                            {log.status.toUpperCase()}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </Card>
-                  ))
-                ) : (
-                  <Card style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-                    <Text style={{ fontSize: 12, color: colors.textSecondary }}>No classes scheduled for today ☕</Text>
-                  </Card>
-                )}
-              </View>
-            </ScrollView>
-          </View>
-        );
-
-      case 'weekly_grid':
-        const weekdayNamesShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        return (
-          <Card key="weekly_grid" style={[styles.widgetCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-            <View style={styles.widgetHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-                <Text style={[styles.widgetTitle, { color: colors.text }]}>Weekly Overview</Text>
-              </View>
-              <TouchableOpacity onPress={() => setActiveTab('timetable')} activeOpacity={0.7}>
-                <Text style={[styles.seeAllText, { color: colors.primary }]}>Grid View →</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-              {weekdayNamesShort.map((dayName, idx) => {
-                const dayCount = entries.filter(e => e.weekday === idx).length;
-                const isTodayDay = todayWeekday === idx;
-                return (
-                  <View
-                    key={dayName}
-                    style={{
-                      alignItems: 'center',
-                      paddingVertical: 8,
-                      paddingHorizontal: 8,
-                      borderRadius: 12,
-                      backgroundColor: isTodayDay ? colors.primary : colors.surfaceVariant,
-                      flex: 1,
-                      marginHorizontal: 2,
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: '800', color: isTodayDay ? colors.onPrimary : colors.textSecondary }}>
-                      {dayName}
-                    </Text>
-                    <Text style={{ fontSize: 15, fontWeight: '900', color: isTodayDay ? colors.onPrimary : colors.text, marginTop: 2 }}>
-                      {dayCount}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </Card>
-        );
 
       case 'swipe_deck':
         return <SwipeDeck key="swipe_deck" />;
@@ -365,105 +270,6 @@ export const TodayScreen: React.FC = () => {
               </View>
             </View>
           </Card>
-        );
-
-      case 'today_schedule':
-        return (
-          <View key="today_schedule" style={styles.sectionMargin}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Today's Schedule</Text>
-              <TouchableOpacity onPress={() => setActiveTab('timetable')} activeOpacity={0.7}>
-                <Text style={[styles.seeAllText, { color: colors.primary }]}>Full Timetable →</Text>
-              </TouchableOpacity>
-            </View>
-
-            {todayClasses.length === 0 ? (
-              <Card style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-                <Ionicons name="cafe-outline" size={32} color={colors.textTertiary} />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>No Classes Scheduled Today</Text>
-                <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-                  Enjoy your break or review upcoming exam topics!
-                </Text>
-              </Card>
-            ) : (
-              todayClasses.map(({ entry, period, subject, log }) => (
-                <View
-                  key={entry.periodId}
-                  style={[
-                    styles.classRowCard,
-                    { backgroundColor: colors.card, borderColor: colors.borderSubtle, borderLeftColor: subject?.color || colors.primary },
-                  ]}
-                >
-                  <View style={styles.timeCol}>
-                    <Text style={[styles.timeText, { color: colors.text }]}>
-                      {period?.startTime}
-                    </Text>
-                    <Text style={[styles.timeSub, { color: colors.textSecondary }]}>
-                      {period?.endTime}
-                    </Text>
-                  </View>
-
-                  <View style={{ flex: 1, marginHorizontal: 12 }}>
-                    <Text style={[styles.subjectName, { color: colors.text }]} numberOfLines={1}>
-                      {subject?.name}
-                    </Text>
-
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 }}>
-                      {(entry.roomOverride || subject?.room) ? (
-                        <Text style={[styles.classMeta, { color: colors.textSecondary }]}>
-                          📍 {entry.roomOverride || subject?.room}
-                        </Text>
-                      ) : null}
-                      {(entry.teacher || subject?.teacher) ? (
-                        <Text style={[styles.classMeta, { color: colors.textSecondary }]}>
-                          👨‍🏫 {entry.teacher || subject?.teacher}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-
-                  {/* Log Status Badge */}
-                  {log ? (
-                    <View
-                      style={[
-                        styles.logBadge,
-                        {
-                          backgroundColor:
-                            log.status === 'present'
-                              ? colors.presentBg
-                              : log.status === 'absent'
-                              ? colors.absentBg
-                              : colors.surfaceVariant,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.logBadgeText,
-                          {
-                            color:
-                              log.status === 'present'
-                                ? colors.present
-                                : log.status === 'absent'
-                                ? colors.absent
-                                : colors.textSecondary,
-                          },
-                        ]}
-                      >
-                        {log.status.toUpperCase()}
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={[styles.logBadge, { backgroundColor: colors.surfaceVariant }]}>
-                      <Text style={[styles.logBadgeText, { color: colors.textTertiary }]}>
-                        PENDING
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              ))
-            )}
-          </View>
         );
 
       case 'attendance_analytics':
