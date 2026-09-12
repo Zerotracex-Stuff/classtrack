@@ -23,3 +23,15 @@ index 6092f88..332a5d8 100644
              }
              
              promise.resolve(null);
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/home_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/home_widget_info.xml
+index f359308..a1b0abd 100644
+--- a/node_modules/react-native-home-widget/android/src/main/res/xml/home_widget_info.xml
++++ b/node_modules/react-native-home-widget/android/src/main/res/xml/home_widget_info.xml
+@@ -5,7 +5,6 @@
+     android:initialLayout="@layout/home_widget"
+     android:minWidth="250dp"
+     android:minHeight="110dp"
+-    android:previewImage="@drawable/ic_launcher_foreground"
+     android:resizeMode="horizontal|vertical"
+     android:targetCellWidth="4"
+     android:targetCellHeight="2"
