@@ -1,0 +1,86 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ☕ Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🟢 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies & Apply Patches
+        run: npm ci
+
+      - name: ⚙️ Generate Native Android Project
+        run: npx expo prebuild --platform android --clean
+
+      - name: 🐘 Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: 🔨 Build Android APK
+        working-directory: android
+        run: |
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'release' }}"
+          echo "Selected build type: $BUILD_TYPE"
+          if [ "$BUILD_TYPE" = "debug" ]; then
+            ./gradlew assembleDebug --no-daemon
+          else
+            ./gradlew assembleRelease --no-daemon
+          fi
+
+      - name: ✍️ Sign Unsigned Release APK (if unsigned)
+        working-directory: android
+        run: |
+          UNSIGNED_APK=$(find app/build/outputs/apk -name "*unsigned*.apk" | head -n 1)
+          if [ -n "$UNSIGNED_APK" ]; then
+            echo "Found unsigned APK: $UNSIGNED_APK"
+            echo "Signing with debug keystore for easy testing & installation..."
+            BUILD_TOOLS_DIR=$(find $ANDROID_HOME/build-tools -mindepth 1 -maxdepth 1 | sort -V | tail -n 1)
+            KEYSTORE="app/debug.keystore"
+            if [ ! -f "$KEYSTORE" ]; then
+              keytool -genkey -v -keystore "$KEYSTORE" -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AndroidDebug,O=Android,C=US"
+            fi
+            SIGNED_APK="${UNSIGNED_APK%-unsigned.apk}-signed.apk"
+            $BUILD_TOOLS_DIR/apksigner sign --ks "$KEYSTORE" --ks-pass pass:android --key-pass pass:android --out "$SIGNED_APK" "$UNSIGNED_APK"
+            echo "Successfully created installable APK: $SIGNED_APK"
+          fi
+
+      - name: 📤 Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClassTrack-Android-APK
+          path: |
+            android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
