@@ -30,16 +30,27 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
   const { subjects, periods, entries, attendance, exams, holidays, settings } = useApp();
 
   const [activePreviewTab, setActivePreviewTab] = useState<
-    'next_class' | 'today_schedule' | 'attendance' | 'analytics' | 'exams' | 'quick_actions' | 'smart_tips' | 'holiday'
+    'next_class' | 'upcoming_classes' | 'tomorrows_classes' | 'weekly_timetable' | 'today_schedule' | 'attendance' | 'analytics' | 'exams' | 'quick_actions' | 'smart_tips' | 'holiday'
   >('next_class');
   const [syncing, setSyncing] = useState(false);
 
   // Math for Live Interactive Launcher Widget Preview
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const todayWeekday = ((new Date().getDay() + 6) % 7);
+  const tomorrowWeekday = (todayWeekday + 1) % 7;
 
   const todayEntries = entries
     .filter(e => e.weekday === todayWeekday)
+    .map(entry => {
+      const period = periods.find(p => p.id === entry.periodId);
+      const subject = subjects.find(s => s.id === entry.subjectId);
+      return { entry, period, subject };
+    })
+    .filter(item => item.period && item.subject)
+    .sort((a, b) => (a.period?.startTime || '').localeCompare(b.period?.startTime || ''));
+
+  const tomorrowEntries = entries
+    .filter(e => e.weekday === tomorrowWeekday)
     .map(entry => {
       const period = periods.find(p => p.id === entry.periodId);
       const subject = subjects.find(s => s.id === entry.subjectId);
@@ -105,7 +116,7 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
     if (success) {
       Alert.alert(
         'Launcher Widgets Synced! 📱✨',
-        'All 8 home launcher widgets (Next Class, Schedule Deck, Attendance Health, Risk Analytics, Exam Countdown, Quick Shortcuts, Smart Tips & Vacation Alert) have been pushed to your device launcher.'
+        'All launcher widgets (Next Class, Upcoming Classes, Tomorrow\'s Classes, Weekly Timetable, Attendance Health, Risk Analytics, Exam Countdown, Quick Shortcuts, Smart Tips & Vacation Alert) have been pushed to your device launcher.'
       );
     } else {
       Alert.alert('Sync Complete', 'Home launcher data refreshed.');
@@ -150,10 +161,10 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            {/* Widget Selection Grid - All 8 Options */}
+            {/* Widget Selection Grid */}
             <View style={styles.gridContainer}>
               <Text style={[styles.gridTitle, { color: colors.textSecondary }]}>
-                AVAILABLE LAUNCHER WIDGET STYLES (MATCHING IN-APP HOME):
+                AVAILABLE LAUNCHER WIDGET STYLES:
               </Text>
               <View style={styles.gridTabBar}>
                 <TouchableOpacity
@@ -172,6 +183,63 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                   />
                   <Text style={[styles.gridTabLabel, { color: activePreviewTab === 'next_class' ? colors.primary : colors.text }]}>
                     Next Class
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.gridTabItem,
+                    { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle },
+                    activePreviewTab === 'upcoming_classes' && { backgroundColor: colors.primaryContainer, borderColor: colors.primary },
+                  ]}
+                  onPress={() => setActivePreviewTab('upcoming_classes')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="hourglass-outline"
+                    size={16}
+                    color={activePreviewTab === 'upcoming_classes' ? colors.primary : colors.text}
+                  />
+                  <Text style={[styles.gridTabLabel, { color: activePreviewTab === 'upcoming_classes' ? colors.primary : colors.text }]}>
+                    Upcoming Classes
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.gridTabItem,
+                    { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle },
+                    activePreviewTab === 'tomorrows_classes' && { backgroundColor: colors.primaryContainer, borderColor: colors.primary },
+                  ]}
+                  onPress={() => setActivePreviewTab('tomorrows_classes')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="today-outline"
+                    size={16}
+                    color={activePreviewTab === 'tomorrows_classes' ? colors.primary : colors.text}
+                  />
+                  <Text style={[styles.gridTabLabel, { color: activePreviewTab === 'tomorrows_classes' ? colors.primary : colors.text }]}>
+                    Tomorrow's Classes
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.gridTabItem,
+                    { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle },
+                    activePreviewTab === 'weekly_timetable' && { backgroundColor: colors.primaryContainer, borderColor: colors.primary },
+                  ]}
+                  onPress={() => setActivePreviewTab('weekly_timetable')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="calendar-outline"
+                    size={16}
+                    color={activePreviewTab === 'weekly_timetable' ? colors.primary : colors.text}
+                  />
+                  <Text style={[styles.gridTabLabel, { color: activePreviewTab === 'weekly_timetable' ? colors.primary : colors.text }]}>
+                    Weekly Grid
                   </Text>
                 </TouchableOpacity>
 
@@ -341,6 +409,82 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                         📍 {firstClass?.entry?.roomOverride || firstClass?.subject?.room || 'Lab 402'}
                       </Text>
                     </View>
+                  </View>
+                </View>
+              )}
+
+              {/* 2. Upcoming Classes Today */}
+              {activePreviewTab === 'upcoming_classes' && (
+                <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: '#6366F1' }]}>
+                  <View style={styles.widgetHeaderRow}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="hourglass" size={18} color="#6366F1" />
+                      <Text style={[styles.widgetHeaderTitle, { color: colors.text }]}>Upcoming Classes Today</Text>
+                    </View>
+                    <View style={[styles.liveBadge, { backgroundColor: '#EEF2FF' }]}>
+                      <Text style={[styles.liveBadgeText, { color: '#4F46E5' }]}>{todayEntries.length} Upcoming</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.widgetMainBody}>
+                    <Text style={[styles.widgetSubject, { color: colors.text }]}>
+                      {todayEntries.length > 0 ? `Upcoming Today (${todayEntries.length})` : 'All Classes Done 🎉'}
+                    </Text>
+                    <Text style={[styles.widgetMeta, { color: colors.textSecondary, marginTop: 4 }]}>
+                      {todayEntries.length > 0
+                        ? todayEntries.slice(0, 3).map(i => `${i.period?.startTime} ${i.subject?.name}`).join('  •  ')
+                        : 'No remaining sessions scheduled for today'}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* 3. Tomorrow's Classes */}
+              {activePreviewTab === 'tomorrows_classes' && (
+                <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: '#8B5CF6' }]}>
+                  <View style={styles.widgetHeaderRow}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="today" size={18} color="#8B5CF6" />
+                      <Text style={[styles.widgetHeaderTitle, { color: colors.text }]}>Tomorrow's Schedule</Text>
+                    </View>
+                    <View style={[styles.liveBadge, { backgroundColor: '#F3E8FF' }]}>
+                      <Text style={[styles.liveBadgeText, { color: '#7C3AED' }]}>{tomorrowEntries.length} Classes</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.widgetMainBody}>
+                    <Text style={[styles.widgetSubject, { color: colors.text }]}>
+                      {tomorrowEntries.length > 0 ? `Tomorrow (${tomorrowEntries.length} Lectures)` : 'No Classes Tomorrow 🎉'}
+                    </Text>
+                    <Text style={[styles.widgetMeta, { color: colors.textSecondary, marginTop: 4 }]}>
+                      {tomorrowEntries.length > 0
+                        ? tomorrowEntries.slice(0, 3).map(i => `${i.period?.startTime} ${i.subject?.name}`).join('  •  ')
+                        : 'Enjoy your day off tomorrow!'}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* 4. Weekly Timetable Overview */}
+              {activePreviewTab === 'weekly_timetable' && (
+                <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: '#EC4899' }]}>
+                  <View style={styles.widgetHeaderRow}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="calendar" size={18} color="#EC4899" />
+                      <Text style={[styles.widgetHeaderTitle, { color: colors.text }]}>Weekly Timetable Grid</Text>
+                    </View>
+                    <View style={[styles.liveBadge, { backgroundColor: '#FCE7F3' }]}>
+                      <Text style={[styles.liveBadgeText, { color: '#DB2777' }]}>{entries.length} Total Sessions</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.widgetMainBody}>
+                    <Text style={[styles.widgetSubject, { color: colors.text }]}>
+                      Weekly Schedule Overview
+                    </Text>
+                    <Text style={[styles.widgetMeta, { color: colors.textSecondary, marginTop: 4 }]}>
+                      Mon-Fri Timetable Grid • Tap to open full schedule details
+                    </Text>
                   </View>
                 </View>
               )}

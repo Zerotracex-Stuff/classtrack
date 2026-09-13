@@ -181,6 +181,31 @@ export const syncLauncherHomeWidgets = async (payload: {
       : 'Regular academic schedule in progress';
     const holidayBadge = activeHoliday ? 'ON VACATION' : 'REGULAR';
 
+    // Serialize full schedule and exams JSON for native real-time background calculations
+    const schedulePayload = entries.map(e => {
+      const p = periods.find(per => per.id === e.periodId);
+      const s = subjects.find(sub => sub.id === e.subjectId);
+      return {
+        weekday: e.weekday,
+        periodId: e.periodId,
+        startTime: p?.startTime || '',
+        endTime: p?.endTime || '',
+        subjectName: s?.name || 'Class',
+        room: e.roomOverride || s?.room || '',
+        teacher: e.teacher || e.teacherOverride || s?.teacher || '',
+      };
+    });
+
+    const examsPayload = exams.map(ex => ({
+      id: ex.id,
+      title: ex.title,
+      date: ex.date,
+      room: ex.venue || '',
+    }));
+
+    const scheduleJsonStr = JSON.stringify(schedulePayload);
+    const examsJsonStr = JSON.stringify(examsPayload);
+
     // Save items to Native Shared Storage for Launcher Widgets
     if (Platform.OS !== 'web') {
       try {
@@ -199,11 +224,52 @@ export const syncLauncherHomeWidgets = async (payload: {
             badgeColor: '#4F46E5',
             title: nextClassName,
             content: classMetaParts.join('  •  ') || 'Tap to view timetable',
+            schedule_json: scheduleJsonStr,
+            exams_json: examsJsonStr,
             backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
           });
 
-          // 2. Attendance Health Widget
+          // 2. Upcoming Classes Widget
+          await (HomeWidget as any).updateWidget('UpcomingClassesWidget', {
+            id: 'UpcomingClassesWidget',
+            tag: '⏳ UPCOMING CLASSES',
+            badge: 'UPCOMING',
+            badgeColor: '#6366F1',
+            title: 'Upcoming Classes Today',
+            content: 'Tap to view upcoming classes',
+            schedule_json: scheduleJsonStr,
+            backgroundColor: '#0F172A',
+            textColor: '#FFFFFF',
+          });
+
+          // 3. Tomorrow's Classes Widget
+          await (HomeWidget as any).updateWidget('TomorrowsClassesWidget', {
+            id: 'TomorrowsClassesWidget',
+            tag: '🌅 TOMORROW\'S CLASSES',
+            badge: 'TOMORROW',
+            badgeColor: '#8B5CF6',
+            title: 'Tomorrow\'s Classes',
+            content: 'Tap to view tomorrow\'s schedule',
+            schedule_json: scheduleJsonStr,
+            backgroundColor: '#0F172A',
+            textColor: '#FFFFFF',
+          });
+
+          // 4. Weekly Timetable Grid Widget
+          await (HomeWidget as any).updateWidget('WeeklyTimetableWidget', {
+            id: 'WeeklyTimetableWidget',
+            tag: '📅 WEEKLY TIMETABLE',
+            badge: 'WEEKLY',
+            badgeColor: '#EC4899',
+            title: 'Weekly Timetable Overview',
+            content: 'Tap to view full weekly grid',
+            schedule_json: scheduleJsonStr,
+            backgroundColor: '#0F172A',
+            textColor: '#FFFFFF',
+          });
+
+          // 5. Attendance Health Widget
           const attBadge = overallPct >= target ? 'HEALTHY 🛡️' : 'SHORTAGE 🚨';
           await (HomeWidget as any).updateWidget('AttendanceWidget', {
             id: 'AttendanceWidget',
@@ -216,7 +282,7 @@ export const syncLauncherHomeWidgets = async (payload: {
             textColor: '#FFFFFF',
           });
 
-          // 3. Nearest Exam Widget
+          // 6. Nearest Exam Widget
           await (HomeWidget as any).updateWidget('ExamsWidget', {
             id: 'ExamsWidget',
             tag: '📝 UPCOMING EXAM',
@@ -224,11 +290,12 @@ export const syncLauncherHomeWidgets = async (payload: {
             badgeColor: '#D97706',
             title: nearestExamTitle,
             content: `📅 ${nearestExamDate} • Tap to view all exams`,
+            exams_json: examsJsonStr,
             backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
           });
 
-          // 4. Today's Deck & Schedule Widget
+          // 7. Today's Deck & Schedule Widget
           await (HomeWidget as any).updateWidget('TodayScheduleWidget', {
             id: 'TodayScheduleWidget',
             tag: '📚 TODAY\'S DECK',
@@ -236,11 +303,12 @@ export const syncLauncherHomeWidgets = async (payload: {
             badgeColor: '#6366F1',
             title: `Today: ${scheduleCount} Scheduled Classes`,
             content: scheduleContent,
+            schedule_json: scheduleJsonStr,
             backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
           });
 
-          // 5. Quick Actions Shortcut Widget
+          // 8. Quick Actions Shortcut Widget
           await (HomeWidget as any).updateWidget('QuickActionsWidget', {
             id: 'QuickActionsWidget',
             tag: '⚡ QUICK ACTIONS',
@@ -252,7 +320,7 @@ export const syncLauncherHomeWidgets = async (payload: {
             textColor: '#FFFFFF',
           });
 
-          // 6. Attendance Analytics & Risk Widget
+          // 9. Attendance Analytics & Risk Widget
           await (HomeWidget as any).updateWidget('AttendanceAnalyticsWidget', {
             id: 'AttendanceAnalyticsWidget',
             tag: '📊 ATTENDANCE RISK',
@@ -264,7 +332,7 @@ export const syncLauncherHomeWidgets = async (payload: {
             textColor: '#FFFFFF',
           });
 
-          // 7. Smart Productivity Tip Widget
+          // 10. Smart Productivity Tip Widget
           await (HomeWidget as any).updateWidget('SmartTipsWidget', {
             id: 'SmartTipsWidget',
             tag: '💡 SMART TIP',
@@ -276,7 +344,7 @@ export const syncLauncherHomeWidgets = async (payload: {
             textColor: '#FFFFFF',
           });
 
-          // 8. Active Holiday Break Widget
+          // 11. Active Holiday Break Widget
           await (HomeWidget as any).updateWidget('HolidayWidget', {
             id: 'HolidayWidget',
             tag: '🌴 VACATION BREAK',

@@ -1,8 +1,8 @@
 diff --git a/node_modules/react-native-home-widget/android/src/main/AndroidManifest.xml b/node_modules/react-native-home-widget/android/src/main/AndroidManifest.xml
-index db85c43..7765465 100644
+index db85c43..87d7e94 100644
 --- a/node_modules/react-native-home-widget/android/src/main/AndroidManifest.xml
 +++ b/node_modules/react-native-home-widget/android/src/main/AndroidManifest.xml
-@@ -7,6 +7,7 @@
+@@ -7,25 +7,126 @@
  
      <application>
          <receiver android:name=".widget.HomeWidgetProvider"
@@ -10,13 +10,50 @@ index db85c43..7765465 100644
              android:exported="true">
              <intent-filter>
                  <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-@@ -16,16 +17,81 @@
++                <action android:name="android.intent.action.BOOT_COMPLETED" />
++                <action android:name="com.reactnativehomewidget.ACTION_PERIODIC_UPDATE" />
+             </intent-filter>
+             <meta-data
+                 android:name="android.appwidget.provider"
                  android:resource="@xml/home_widget_info" />
          </receiver>
  
 -        <service android:name=".widget.HomeWidgetService"
 -            android:permission="android.permission.BIND_REMOTEVIEWS"
 -            android:exported="false" />
++        <receiver android:name=".widget.UpcomingClassesWidgetProvider"
++            android:label="ClassTrack: Upcoming Classes"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
++            </intent-filter>
++            <meta-data
++                android:name="android.appwidget.provider"
++                android:resource="@xml/upcoming_classes_widget_info" />
++        </receiver>
++
++        <receiver android:name=".widget.TomorrowsClassesWidgetProvider"
++            android:label="ClassTrack: Tomorrow's Classes"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
++            </intent-filter>
++            <meta-data
++                android:name="android.appwidget.provider"
++                android:resource="@xml/tomorrows_classes_widget_info" />
++        </receiver>
++
++        <receiver android:name=".widget.WeeklyTimetableWidgetProvider"
++            android:label="ClassTrack: Weekly Timetable"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
++            </intent-filter>
++            <meta-data
++                android:name="android.appwidget.provider"
++                android:resource="@xml/weekly_timetable_widget_info" />
++        </receiver>
++
 +        <receiver android:name=".widget.AttendanceWidgetProvider"
 +            android:label="ClassTrack: Attendance Health"
 +            android:exported="true">
@@ -101,10 +138,10 @@ index db85c43..7765465 100644
      </application>
  </manifest>
 diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java
-index 6092f88..d639ae6 100644
+index 6092f88..7f2f6c3 100644
 --- a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java
 +++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java
-@@ -1,34 +1,33 @@
+@@ -1,34 +1,36 @@
  package com.reactnativehomewidget;
  
 -import android.app.PendingIntent;
@@ -131,6 +168,9 @@ index 6092f88..d639ae6 100644
 +import com.reactnativehomewidget.widget.AttendanceAnalyticsWidgetProvider;
 +import com.reactnativehomewidget.widget.SmartTipsWidgetProvider;
 +import com.reactnativehomewidget.widget.HolidayWidgetProvider;
++import com.reactnativehomewidget.widget.UpcomingClassesWidgetProvider;
++import com.reactnativehomewidget.widget.TomorrowsClassesWidgetProvider;
++import com.reactnativehomewidget.widget.WeeklyTimetableWidgetProvider;
  
  import com.facebook.react.bridge.Arguments;
  import com.facebook.react.bridge.Promise;
@@ -149,7 +189,7 @@ index 6092f88..d639ae6 100644
  import java.util.Map;
  
  public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
-@@ -37,7 +36,6 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -37,7 +39,6 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
      
      private ReactApplicationContext reactContext;
      private Map<String, WidgetConfig> registeredWidgets = new HashMap<>();
@@ -157,7 +197,7 @@ index 6092f88..d639ae6 100644
  
      private static ReactNativeHomeWidgetModule instance;
      
-@@ -89,19 +87,36 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -89,19 +90,40 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
      @ReactMethod
      public void updateWidget(String widgetId, ReadableMap data, Promise promise) {
          try {
@@ -171,9 +211,9 @@ index 6092f88..d639ae6 100644
              String textColor = data.hasKey("textColor") ? data.getString("textColor") : "#FFFFFF";
 -            String imageUrl = data.hasKey("imageUrl") ? data.getString("imageUrl") : null;
 -            String actionUrl = data.hasKey("actionUrl") ? data.getString("actionUrl") : null;
- 
--            WidgetData widgetData = new WidgetData(widgetId, title, content, backgroundColor, textColor, imageUrl, actionUrl);
--            this.widgetData.put(widgetId, widgetData);
++            String scheduleJson = data.hasKey("schedule_json") ? data.getString("schedule_json") : null;
++            String examsJson = data.hasKey("exams_json") ? data.getString("exams_json") : null;
++
 +            // Persist to SharedPreferences so widget survives app death/restart/onUpdate
 +            SharedPreferences prefs = reactContext.getSharedPreferences(HomeWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE);
 +            SharedPreferences.Editor editor = prefs.edit();
@@ -182,11 +222,15 @@ index 6092f88..d639ae6 100644
 +            if (tag != null) editor.putString(widgetId + "_tag", tag);
 +            if (badge != null) editor.putString(widgetId + "_badge", badge);
 +            if (textColor != null) editor.putString(widgetId + "_textColor", textColor);
++            if (scheduleJson != null) editor.putString("schedule_json", scheduleJson);
++            if (examsJson != null) editor.putString("exams_json", examsJson);
 +            editor.apply();
 +
 +            // Find provider class for this widgetId
 +            Class<?> providerClass = getProviderClassForWidgetId(widgetId);
-+
+ 
+-            WidgetData widgetData = new WidgetData(widgetId, title, content, backgroundColor, textColor, imageUrl, actionUrl);
+-            this.widgetData.put(widgetId, widgetData);
 +            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(reactContext);
 +            ComponentName componentName = new ComponentName(reactContext, providerClass);
 +            int[] appWidgetIds = appWidgetManager.getAppWidgetIds(componentName);
@@ -202,7 +246,7 @@ index 6092f88..d639ae6 100644
              promise.reject("ERROR", "Failed to update widget", e);
          }
      }
-@@ -110,14 +125,22 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -110,14 +132,22 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
      public void removeWidget(String widgetId, Promise promise) {
          try {
              registeredWidgets.remove(widgetId);
@@ -228,7 +272,7 @@ index 6092f88..d639ae6 100644
              }
              
              promise.resolve(null);
-@@ -147,15 +170,30 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -147,15 +177,30 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
  
      @ReactMethod
      public void setWidgetClickHandler(Promise promise) {
@@ -243,14 +287,14 @@ index 6092f88..d639ae6 100644
 -                updateWidgetViews(widgetId);
 +            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(reactContext);
 +            String[] widgetIds = new String[]{
-+                "NextClassWidget", "AttendanceWidget", "ExamsWidget",
-+                "TodayScheduleWidget", "QuickActionsWidget", "AttendanceAnalyticsWidget",
-+                "SmartTipsWidget", "HolidayWidget"
++                "NextClassWidget", "UpcomingClassesWidget", "TomorrowsClassesWidget", "WeeklyTimetableWidget",
++                "AttendanceWidget", "ExamsWidget", "TodayScheduleWidget", "QuickActionsWidget",
++                "AttendanceAnalyticsWidget", "SmartTipsWidget", "HolidayWidget"
 +            };
 +            Class<?>[] providerClasses = new Class<?>[]{
-+                HomeWidgetProvider.class, AttendanceWidgetProvider.class, ExamsWidgetProvider.class,
-+                TodayScheduleWidgetProvider.class, QuickActionsWidgetProvider.class, AttendanceAnalyticsWidgetProvider.class,
-+                SmartTipsWidgetProvider.class, HolidayWidgetProvider.class
++                HomeWidgetProvider.class, UpcomingClassesWidgetProvider.class, TomorrowsClassesWidgetProvider.class, WeeklyTimetableWidgetProvider.class,
++                AttendanceWidgetProvider.class, ExamsWidgetProvider.class, TodayScheduleWidgetProvider.class, QuickActionsWidgetProvider.class,
++                AttendanceAnalyticsWidgetProvider.class, SmartTipsWidgetProvider.class, HolidayWidgetProvider.class
 +            };
 +
 +            for (int i = 0; i < widgetIds.length; i++) {
@@ -262,7 +306,7 @@ index 6092f88..d639ae6 100644
              }
              promise.resolve(null);
          } catch (Exception e) {
-@@ -163,47 +201,23 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -163,47 +208,29 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
          }
      }
  
@@ -311,6 +355,12 @@ index 6092f88..d639ae6 100644
 +            return AttendanceWidgetProvider.class;
 +        } else if ("ExamsWidget".equals(widgetId)) {
 +            return ExamsWidgetProvider.class;
++        } else if ("UpcomingClassesWidget".equals(widgetId)) {
++            return UpcomingClassesWidgetProvider.class;
++        } else if ("TomorrowsClassesWidget".equals(widgetId)) {
++            return TomorrowsClassesWidgetProvider.class;
++        } else if ("WeeklyTimetableWidget".equals(widgetId)) {
++            return WeeklyTimetableWidgetProvider.class;
 +        } else if ("TodayScheduleWidget".equals(widgetId)) {
 +            return TodayScheduleWidgetProvider.class;
 +        } else if ("QuickActionsWidget".equals(widgetId)) {
@@ -326,7 +376,7 @@ index 6092f88..d639ae6 100644
      }
  
      public void sendWidgetClickEvent(String widgetId, String actionUrl) {
-@@ -216,7 +230,6 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -216,7 +243,6 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
              .emit(WIDGET_CLICK_EVENT, params);
      }
  
@@ -334,7 +384,7 @@ index 6092f88..d639ae6 100644
      private static class WidgetConfig {
          String widgetId;
          String widgetName;
-@@ -232,25 +245,4 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -232,25 +258,4 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
              this.category = category;
          }
      }
@@ -417,32 +467,54 @@ index 0000000..f654816
 +    }
 +}
 diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java
-index 89db3bb..f1d5235 100644
+index 89db3bb..2eee95f 100644
 --- a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java
 +++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java
-@@ -3,25 +3,32 @@ package com.reactnativehomewidget.widget;
+@@ -1,27 +1,57 @@
+ package com.reactnativehomewidget.widget;
+ 
++import android.app.AlarmManager;
  import android.app.PendingIntent;
  import android.appwidget.AppWidgetManager;
  import android.appwidget.AppWidgetProvider;
--import android.content.ComponentName;
+ import android.content.ComponentName;
  import android.content.Context;
  import android.content.Intent;
 -import android.net.Uri;
 +import android.content.SharedPreferences;
 +import android.graphics.Color;
++import android.os.SystemClock;
  import android.util.Log;
  import android.widget.RemoteViews;
  
 +import com.reactnativehomewidget.R;
  import com.reactnativehomewidget.ReactNativeHomeWidgetModule;
  
++import org.json.JSONArray;
++import org.json.JSONObject;
++
++import java.text.SimpleDateFormat;
++import java.util.ArrayList;
++import java.util.Calendar;
++import java.util.Collections;
++import java.util.Date;
++import java.util.List;
++import java.util.Locale;
++
  public class HomeWidgetProvider extends AppWidgetProvider {
      private static final String TAG = "HomeWidgetProvider";
      public static final String ACTION_WIDGET_CLICK = "WIDGET_CLICK";
++    public static final String ACTION_PERIODIC_UPDATE = "com.reactnativehomewidget.ACTION_PERIODIC_UPDATE";
 +    public static final String PREFS_NAME = "ClassTrackWidgets";
 +
 +    protected String getWidgetType() {
 +        return "NextClassWidget";
++    }
++
++    @Override
++    public void onEnabled(Context context) {
++        super.onEnabled(context);
++        schedulePeriodicAlarm(context);
 +    }
  
      @Override
@@ -450,19 +522,30 @@ index 89db3bb..f1d5235 100644
 -        Log.d(TAG, "onUpdate called");
 +        String widgetType = getWidgetType();
 +        Log.d(TAG, "onUpdate called for " + widgetType + ", count: " + appWidgetIds.length);
-         
++        
++        schedulePeriodicAlarm(context);
+ 
          for (int appWidgetId : appWidgetIds) {
 -            updateAppWidget(context, appWidgetManager, appWidgetId);
 +            updateAppWidget(context, appWidgetManager, appWidgetId, widgetType);
          }
      }
  
-@@ -35,29 +42,114 @@ public class HomeWidgetProvider extends AppWidgetProvider {
+@@ -29,35 +59,375 @@ public class HomeWidgetProvider extends AppWidgetProvider {
+     public void onReceive(Context context, Intent intent) {
+         super.onReceive(context, intent);
+         
+-        if (ACTION_WIDGET_CLICK.equals(intent.getAction())) {
++        String action = intent.getAction();
++        if (ACTION_PERIODIC_UPDATE.equals(action) || Intent.ACTION_BOOT_COMPLETED.equals(action)) {
++            refreshAllInstalledWidgets(context);
++        } else if (ACTION_WIDGET_CLICK.equals(intent.getAction())) {
+             String widgetId = intent.getStringExtra("widgetId");
+             String actionUrl = intent.getStringExtra("actionUrl");
              
              Log.d(TAG, "Widget clicked: " + widgetId + ", actionUrl: " + actionUrl);
              
 -            // Send event to React Native
-+            // Send event to React Native if alive
              ReactNativeHomeWidgetModule module = ReactNativeHomeWidgetModule.getInstance();
              if (module != null) {
                  module.sendWidgetClickEvent(widgetId, actionUrl);
@@ -472,31 +555,76 @@ index 89db3bb..f1d5235 100644
              
 -            // Handle the action URL if provided
 -            if (actionUrl != null && !actionUrl.isEmpty()) {
--                try {
--                    Intent actionIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(actionUrl));
--                    actionIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
--                    context.startActivity(actionIntent);
--                } catch (Exception e) {
--                    Log.e(TAG, "Failed to open action URL: " + actionUrl, e);
-+            // Always launch or bring MainActivity to front
 +            try {
 +                Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
 +                if (launchIntent != null) {
 +                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 +                    context.startActivity(launchIntent);
-                 }
++                }
 +            } catch (Exception e) {
 +                Log.e(TAG, "Failed to launch main activity on widget click", e);
-             }
-         }
-     }
- 
--    static void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
--        // This will be handled by the ReactNativeHomeWidgetModule
--        Log.d(TAG, "updateAppWidget called for widget ID: " + appWidgetId);
++            }
++        }
++    }
++
++    private static void schedulePeriodicAlarm(Context context) {
++        try {
++            AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
++            if (alarmManager != null) {
++                Intent intent = new Intent(context, HomeWidgetProvider.class);
++                intent.setAction(ACTION_PERIODIC_UPDATE);
++                PendingIntent pendingIntent = PendingIntent.getBroadcast(
++                    context, 
++                    999, 
++                    intent, 
++                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
++                );
++                // Trigger alarm every 60 seconds so widget stays updated in background even when app is killed
++                long interval = 60000L;
++                alarmManager.setRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + interval, interval, pendingIntent);
++            }
++        } catch (Exception e) {
++            Log.e(TAG, "Failed to schedule periodic alarm", e);
++        }
++    }
++
++    public static void refreshAllInstalledWidgets(Context context) {
++        try {
++            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
++            String[] widgetIds = new String[]{
++                "NextClassWidget", "UpcomingClassesWidget", "TomorrowsClassesWidget", "WeeklyTimetableWidget",
++                "AttendanceWidget", "ExamsWidget", "TodayScheduleWidget", "QuickActionsWidget",
++                "AttendanceAnalyticsWidget", "SmartTipsWidget", "HolidayWidget"
++            };
++            Class<?>[] providerClasses = new Class<?>[]{
++                HomeWidgetProvider.class, UpcomingClassesWidgetProvider.class, TomorrowsClassesWidgetProvider.class, WeeklyTimetableWidgetProvider.class,
++                AttendanceWidgetProvider.class, ExamsWidgetProvider.class, TodayScheduleWidgetProvider.class, QuickActionsWidgetProvider.class,
++                AttendanceAnalyticsWidgetProvider.class, SmartTipsWidgetProvider.class, HolidayWidgetProvider.class
++            };
++
++            for (int i = 0; i < widgetIds.length; i++) {
++                ComponentName componentName = new ComponentName(context, providerClasses[i]);
++                int[] appWidgetIds = appWidgetManager.getAppWidgetIds(componentName);
++                for (int appWidgetId : appWidgetIds) {
++                    updateAppWidget(context, appWidgetManager, appWidgetId, widgetIds[i]);
++                }
++            }
++        } catch (Exception e) {
++            Log.e(TAG, "Failed to refresh installed widgets", e);
++        }
++    }
++
 +    public static void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId, String widgetType) {
 +        try {
 +            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
++
++            String rawScheduleJson = prefs.getString("schedule_json", "[]");
++            String rawExamsJson = prefs.getString("exams_json", "[]");
++
++            Calendar now = Calendar.getInstance();
++            int todayWeekday = (now.get(Calendar.DAY_OF_WEEK) + 5) % 7; // 0 = Mon ... 6 = Sun
++            int currentMins = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE);
++            int tomorrowWeekday = (todayWeekday + 1) % 7;
 +
 +            String defaultTag = "⏰ NEXT CLASS";
 +            String defaultTitle = "ClassTrack Schedule";
@@ -513,6 +641,21 @@ index 89db3bb..f1d5235 100644
 +                defaultTitle = "Upcoming Exams";
 +                defaultContent = "Open app to view deadlines";
 +                defaultBadge = "EXAMS";
++            } else if ("UpcomingClassesWidget".equals(widgetType)) {
++                defaultTag = "⏳ UPCOMING CLASSES";
++                defaultTitle = "Upcoming Today";
++                defaultContent = "Open app to view schedule";
++                defaultBadge = "UPCOMING";
++            } else if ("TomorrowsClassesWidget".equals(widgetType)) {
++                defaultTag = "🌅 TOMORROW'S CLASSES";
++                defaultTitle = "Tomorrow's Schedule";
++                defaultContent = "Open app to view timetable";
++                defaultBadge = "TOMORROW";
++            } else if ("WeeklyTimetableWidget".equals(widgetType)) {
++                defaultTag = "📅 WEEKLY TIMETABLE";
++                defaultTitle = "Weekly Schedule Overview";
++                defaultContent = "Open app to view weekly timetable";
++                defaultBadge = "WEEKLY";
 +            } else if ("TodayScheduleWidget".equals(widgetType)) {
 +                defaultTag = "📚 TODAY'S DECK";
 +                defaultTitle = "Today's Schedule";
@@ -545,6 +688,185 @@ index 89db3bb..f1d5235 100644
 +            String tag = prefs.getString(widgetType + "_tag", defaultTag);
 +            String badge = prefs.getString(widgetType + "_badge", defaultBadge);
 +            String textColorStr = prefs.getString(widgetType + "_textColor", "#FFFFFF");
++
++            // Real-Time Dynamic Schedule Calculations (works even when app process is closed)
++            if ("NextClassWidget".equals(widgetType) || "UpcomingClassesWidget".equals(widgetType) || "TomorrowsClassesWidget".equals(widgetType) || "WeeklyTimetableWidget".equals(widgetType) || "TodayScheduleWidget".equals(widgetType)) {
++                try {
++                    JSONArray scheduleArray = new JSONArray(rawScheduleJson);
++                    List<JSONObject> todayList = new ArrayList<>();
++                    List<JSONObject> tomorrowList = new ArrayList<>();
++
++                    for (int i = 0; i < scheduleArray.length(); i++) {
++                        JSONObject item = scheduleArray.getJSONObject(i);
++                        int w = item.optInt("weekday", -1);
++                        if (w == todayWeekday) {
++                            todayList.add(item);
++                        } else if (w == tomorrowWeekday) {
++                            tomorrowList.add(item);
++                        }
++                    }
++
++                    Collections.sort(todayList, (a, b) -> a.optString("startTime").compareTo(b.optString("startTime")));
++                    Collections.sort(tomorrowList, (a, b) -> a.optString("startTime").compareTo(b.optString("startTime")));
++
++                    if ("NextClassWidget".equals(widgetType)) {
++                        tag = "⏰ NEXT CLASS";
++                        boolean found = false;
++                        for (JSONObject item : todayList) {
++                            String startStr = item.optString("startTime", "00:00");
++                            String endStr = item.optString("endTime", "00:00");
++                            int startMins = parseTimeMins(startStr);
++                            int endMins = parseTimeMins(endStr);
++                            String subject = item.optString("subjectName", "Class");
++                            String room = item.optString("room", "");
++                            String teacher = item.optString("teacher", "");
++
++                            if (currentMins >= startMins && currentMins <= endMins) {
++                                int minsLeft = endMins - currentMins;
++                                badge = "In Session (" + minsLeft + "m left)";
++                                title = subject;
++                                content = "⏰ " + startStr + "-" + endStr + (room.isEmpty() ? "" : "  •  📍 " + room) + (teacher.isEmpty() ? "" : "  •  👤 " + teacher);
++                                found = true;
++                                break;
++                            } else if (currentMins < startMins) {
++                                int minsUntil = startMins - currentMins;
++                                badge = "Starts in " + minsUntil + "m";
++                                title = subject;
++                                content = "⏰ " + startStr + "-" + endStr + (room.isEmpty() ? "" : "  •  📍 " + room) + (teacher.isEmpty() ? "" : "  •  👤 " + teacher);
++                                found = true;
++                                break;
++                            }
++                        }
++
++                        if (!found) {
++                            if (todayList.size() > 0) {
++                                badge = "Done for Today 🎉";
++                                title = "No More Classes Today";
++                                JSONObject first = todayList.get(0);
++                                content = "Rest & review ☕  •  Tomorrow: " + first.optString("subjectName") + " @ " + first.optString("startTime");
++                            } else {
++                                badge = "Free Day";
++                                title = "No Classes Today";
++                                content = "No scheduled sessions for today. Relax!";
++                            }
++                        }
++                    } else if ("UpcomingClassesWidget".equals(widgetType)) {
++                        tag = "⏳ UPCOMING CLASSES";
++                        List<JSONObject> upcoming = new ArrayList<>();
++                        for (JSONObject item : todayList) {
++                            int startMins = parseTimeMins(item.optString("startTime", "00:00"));
++                            if (startMins > currentMins) {
++                                upcoming.add(item);
++                            }
++                        }
++
++                        badge = upcoming.size() + " UPCOMING";
++                        if (upcoming.size() > 0) {
++                            title = "Upcoming Today (" + upcoming.size() + " Left)";
++                            StringBuilder sb = new StringBuilder();
++                            for (int k = 0; k < Math.min(upcoming.size(), 3); k++) {
++                                JSONObject item = upcoming.get(k);
++                                if (k > 0) sb.append("  •  ");
++                                sb.append(item.optString("startTime")).append(" ").append(item.optString("subjectName"));
++                                String r = item.optString("room", "");
++                                if (!r.isEmpty()) sb.append(" (").append(r).append(")");
++                            }
++                            content = sb.toString();
++                        } else {
++                            title = "No More Classes Today";
++                            content = "All sessions completed for today 🎉";
++                        }
++                    } else if ("TomorrowsClassesWidget".equals(widgetType)) {
++                        tag = "🌅 TOMORROW'S CLASSES";
++                        badge = tomorrowList.size() + " CLASSES";
++                        if (tomorrowList.size() > 0) {
++                            title = "Tomorrow (" + tomorrowList.size() + " Lectures)";
++                            StringBuilder sb = new StringBuilder();
++                            for (int k = 0; k < Math.min(tomorrowList.size(), 4); k++) {
++                                JSONObject item = tomorrowList.get(k);
++                                if (k > 0) sb.append("  •  ");
++                                sb.append(item.optString("startTime")).append(" ").append(item.optString("subjectName"));
++                                String r = item.optString("room", "");
++                                if (!r.isEmpty()) sb.append(" (").append(r).append(")");
++                            }
++                            content = sb.toString();
++                        } else {
++                            title = "No Classes Tomorrow";
++                            content = "No scheduled lectures for tomorrow. Enjoy your break!";
++                        }
++                    } else if ("WeeklyTimetableWidget".equals(widgetType)) {
++                        tag = "📅 WEEKLY TIMETABLE";
++                        badge = scheduleArray.length() + " SESSIONS";
++                        title = "Weekly Timetable Overview";
++                        StringBuilder sb = new StringBuilder();
++                        String[] dayNames = new String[]{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
++                        int count = 0;
++                        for (int d = 0; d < 7; d++) {
++                            List<JSONObject> dayEntries = new ArrayList<>();
++                            for (int i = 0; i < scheduleArray.length(); i++) {
++                                JSONObject item = scheduleArray.getJSONObject(i);
++                                if (item.optInt("weekday") == d) {
++                                    dayEntries.add(item);
++                                }
++                            }
++                            if (dayEntries.size() > 0) {
++                                if (count > 0) sb.append(" | ");
++                                sb.append(dayNames[d]).append(": ");
++                                for (int j = 0; j < Math.min(dayEntries.size(), 2); j++) {
++                                    if (j > 0) sb.append(", ");
++                                    sb.append(dayEntries.get(j).optString("subjectName"));
++                                }
++                                count++;
++                            }
++                        }
++                        content = sb.length() > 0 ? sb.toString() : "Tap to open timetable";
++                    }
++                } catch (Exception e) {
++                    Log.e(TAG, "Error performing dynamic schedule calculation", e);
++                }
++            } else if ("ExamsWidget".equals(widgetType)) {
++                tag = "📝 UPCOMING EXAM";
+                 try {
+-                    Intent actionIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(actionUrl));
+-                    actionIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+-                    context.startActivity(actionIntent);
++                    JSONArray examsArray = new JSONArray(rawExamsJson);
++                    JSONObject nearest = null;
++                    long minDiff = Long.MAX_VALUE;
++                    long todayMillis = System.currentTimeMillis();
++                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
++
++                    for (int i = 0; i < examsArray.length(); i++) {
++                        JSONObject exam = examsArray.getJSONObject(i);
++                        String dateStr = exam.optString("date", "");
++                        if (!dateStr.isEmpty()) {
++                            Date d = sdf.parse(dateStr);
++                            if (d != null && d.getTime() >= todayMillis - 86400000L) {
++                                long diff = d.getTime() - todayMillis;
++                                if (diff < minDiff) {
++                                    minDiff = diff;
++                                    nearest = exam;
++                                }
++                            }
++                        }
++                    }
++
++                    if (nearest != null) {
++                        title = nearest.optString("title", "Upcoming Exam");
++                        String dateStr = nearest.optString("date", "");
++                        String roomStr = nearest.optString("room", "");
++                        int daysLeft = (int) Math.ceil((double) minDiff / (1000 * 60 * 60 * 24));
++                        if (daysLeft <= 0) badge = "TODAY! 📝";
++                        else if (daysLeft == 1) badge = "TOMORROW! ⏳";
++                        else badge = "In " + daysLeft + " days";
++
++                        content = "📅 " + dateStr + (roomStr.isEmpty() ? "" : "  •  📍 Room " + roomStr);
++                    }
+                 } catch (Exception e) {
+-                    Log.e(TAG, "Failed to open action URL: " + actionUrl, e);
++                    Log.e(TAG, "Error performing dynamic exam countdown calculation", e);
+                 }
+             }
 +
 +            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.home_widget);
 +
@@ -583,6 +905,18 @@ index 89db3bb..f1d5235 100644
 +            Log.d(TAG, "Successfully updated widget " + widgetType + " id: " + appWidgetId);
 +        } catch (Exception e) {
 +            Log.e(TAG, "Failed to update widget " + widgetType + " id: " + appWidgetId, e);
+         }
+     }
+ 
+-    static void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
+-        // This will be handled by the ReactNativeHomeWidgetModule
+-        Log.d(TAG, "updateAppWidget called for widget ID: " + appWidgetId);
++    private static int parseTimeMins(String timeStr) {
++        try {
++            String[] parts = timeStr.split(":");
++            return Integer.parseInt(parts[0]) * 60 + Integer.parseInt(parts[1]);
++        } catch (Exception e) {
++            return 0;
 +        }
      }
  }
@@ -626,6 +960,48 @@ index 0000000..23978c2
 +    @Override
 +    protected String getWidgetType() {
 +        return "TodayScheduleWidget";
++    }
++}
+diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/TomorrowsClassesWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/TomorrowsClassesWidgetProvider.java
+new file mode 100644
+index 0000000..a6e247c
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/TomorrowsClassesWidgetProvider.java
+@@ -0,0 +1,8 @@
++package com.reactnativehomewidget.widget;
++
++public class TomorrowsClassesWidgetProvider extends HomeWidgetProvider {
++    @Override
++    protected String getWidgetType() {
++        return "TomorrowsClassesWidget";
++    }
++}
+diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/UpcomingClassesWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/UpcomingClassesWidgetProvider.java
+new file mode 100644
+index 0000000..2cce56e
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/UpcomingClassesWidgetProvider.java
+@@ -0,0 +1,8 @@
++package com.reactnativehomewidget.widget;
++
++public class UpcomingClassesWidgetProvider extends HomeWidgetProvider {
++    @Override
++    protected String getWidgetType() {
++        return "UpcomingClassesWidget";
++    }
++}
+diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/WeeklyTimetableWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/WeeklyTimetableWidgetProvider.java
+new file mode 100644
+index 0000000..d71c845
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/WeeklyTimetableWidgetProvider.java
+@@ -0,0 +1,8 @@
++package com.reactnativehomewidget.widget;
++
++public class WeeklyTimetableWidgetProvider extends HomeWidgetProvider {
++    @Override
++    protected String getWidgetType() {
++        return "WeeklyTimetableWidget";
 +    }
 +}
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_background.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_background.xml
@@ -780,10 +1156,10 @@ index 5fd6f60..81722ae 100644
  
  </LinearLayout>
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml b/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml
-index c5c5d7a..fad3b79 100644
+index c5c5d7a..59e841e 100644
 --- a/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml
 +++ b/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml
-@@ -1,5 +1,12 @@
+@@ -1,5 +1,15 @@
  <?xml version="1.0" encoding="utf-8"?>
  <resources>
 -    <string name="app_name">React Native Home Widget</string>
@@ -797,6 +1173,9 @@ index c5c5d7a..fad3b79 100644
 +    <string name="analytics_widget_description">Attendance Risk &amp; Analytics Widget</string>
 +    <string name="smart_tips_widget_description">Daily Smart Productivity Tip Widget</string>
 +    <string name="holiday_widget_description">Vacation &amp; Holiday Alert Widget</string>
++    <string name="upcoming_classes_widget_description">Upcoming Classes Widget</string>
++    <string name="tomorrows_classes_widget_description">Tomorrow\'s Classes Widget</string>
++    <string name="weekly_timetable_widget_description">Weekly Timetable Grid Widget</string>
  </resources>
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/analytics_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/analytics_widget_info.xml
 new file mode 100644
@@ -937,5 +1316,59 @@ index 0000000..78c7454
 +    android:resizeMode="horizontal|vertical"
 +    android:targetCellWidth="4"
 +    android:targetCellHeight="2"
++    android:updatePeriodMillis="1800000"
++    android:widgetCategory="home_screen" />
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/tomorrows_classes_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/tomorrows_classes_widget_info.xml
+new file mode 100644
+index 0000000..406165f
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/xml/tomorrows_classes_widget_info.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
++    android:description="@string/tomorrows_classes_widget_description"
++    android:initialKeyguardLayout="@layout/home_widget"
++    android:initialLayout="@layout/home_widget"
++    android:minWidth="250dp"
++    android:minHeight="110dp"
++    android:resizeMode="horizontal|vertical"
++    android:targetCellWidth="4"
++    android:targetCellHeight="2"
++    android:updatePeriodMillis="1800000"
++    android:widgetCategory="home_screen" />
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/upcoming_classes_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/upcoming_classes_widget_info.xml
+new file mode 100644
+index 0000000..57c4417
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/xml/upcoming_classes_widget_info.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
++    android:description="@string/upcoming_classes_widget_description"
++    android:initialKeyguardLayout="@layout/home_widget"
++    android:initialLayout="@layout/home_widget"
++    android:minWidth="250dp"
++    android:minHeight="110dp"
++    android:resizeMode="horizontal|vertical"
++    android:targetCellWidth="4"
++    android:targetCellHeight="2"
++    android:updatePeriodMillis="1800000"
++    android:widgetCategory="home_screen" />
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/weekly_timetable_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/weekly_timetable_widget_info.xml
+new file mode 100644
+index 0000000..317d791
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/xml/weekly_timetable_widget_info.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
++    android:description="@string/weekly_timetable_widget_description"
++    android:initialKeyguardLayout="@layout/home_widget"
++    android:initialLayout="@layout/home_widget"
++    android:minWidth="250dp"
++    android:minHeight="140dp"
++    android:resizeMode="horizontal|vertical"
++    android:targetCellWidth="4"
++    android:targetCellHeight="3"
 +    android:updatePeriodMillis="1800000"
 +    android:widgetCategory="home_screen" />
