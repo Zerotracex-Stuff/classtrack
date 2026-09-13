@@ -45,61 +45,76 @@ jobs:
       - name: 📦 Install Dependencies & Apply Patches
         run: npm ci
 
-      - name: ⚙️ Generate Native Android Project
-        run: npx expo prebuild --platform android --clean
+      - name: ⚙️ Generate Native Android Project & Configure Architecture Splits
+        run: |
+          npx expo prebuild --platform android --clean
+          echo "react.enableSeparateBuildPerCPUArchitecture=true" >> android/gradle.properties
 
       - name: 🐘 Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
 
-      - name: 🔨 Build Android APK
+      - name: 🔨 Build Android APK (Architecture Splits)
         working-directory: android
         run: |
           BUILD_TYPE="${{ github.event.inputs.build_type || 'release' }}"
           echo "Selected build type: $BUILD_TYPE"
           if [ "$BUILD_TYPE" = "debug" ]; then
-            ./gradlew assembleDebug --no-daemon
+            ./gradlew assembleDebug -Preact.enableSeparateBuildPerCPUArchitecture=true --no-daemon
           else
-            ./gradlew assembleRelease --no-daemon
+            ./gradlew assembleRelease -Preact.enableSeparateBuildPerCPUArchitecture=true --no-daemon
           fi
 
-      - name: ✍️ Sign Unsigned Release APK (if unsigned)
+      - name: ✍️ Sign Unsigned APKs (if unsigned)
         working-directory: android
         run: |
-          UNSIGNED_APK=$(find app/build/outputs/apk -name "*unsigned*.apk" | head -n 1)
-          if [ -n "$UNSIGNED_APK" ]; then
-            echo "Found unsigned APK: $UNSIGNED_APK"
-            echo "Signing with debug keystore for easy testing & installation..."
+          UNSIGNED_APKS=$(find app/build/outputs/apk -name "*unsigned*.apk")
+          if [ -n "$UNSIGNED_APKS" ]; then
+            echo "Signing unsigned APKs with debug keystore for easy testing & installation..."
             BUILD_TOOLS_DIR=$(find $ANDROID_HOME/build-tools -mindepth 1 -maxdepth 1 | sort -V | tail -n 1)
             KEYSTORE="app/debug.keystore"
             if [ ! -f "$KEYSTORE" ]; then
               keytool -genkey -v -keystore "$KEYSTORE" -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AndroidDebug,O=Android,C=US"
             fi
-            SIGNED_APK="${UNSIGNED_APK%-unsigned.apk}-signed.apk"
-            $BUILD_TOOLS_DIR/apksigner sign --ks "$KEYSTORE" --ks-pass pass:android --key-pass pass:android --out "$SIGNED_APK" "$UNSIGNED_APK"
-            echo "Successfully created installable APK: $SIGNED_APK"
+            for UNSIGNED_APK in $UNSIGNED_APKS; do
+              echo "Signing $UNSIGNED_APK..."
+              SIGNED_APK="${UNSIGNED_APK%-unsigned.apk}-signed.apk"
+              $BUILD_TOOLS_DIR/apksigner sign --ks "$KEYSTORE" --ks-pass pass:android --key-pass pass:android --out "$SIGNED_APK" "$UNSIGNED_APK"
+              echo "Created signed APK: $SIGNED_APK"
+            done
           fi
 
-      - name: 📦 Prepare APK for Release
+      - name: 📦 Prepare Architecture-Specific APKs for Release
         run: |
-          APK_FILE=$(find android/app/build/outputs/apk -type f -name "*-signed.apk" | head -n 1)
-          if [ -z "$APK_FILE" ]; then
-            APK_FILE=$(find android/app/build/outputs/apk -type f -name "app-release.apk" | head -n 1)
+          echo "Scanning for built APKs..."
+          for apk in $(find android/app/build/outputs/apk -type f \( -name "*-signed.apk" -o -name "*-release.apk" -o -name "*-debug.apk" \) ! -name "*unsigned*"); do
+            filename=$(basename "$apk")
+            echo "Processing $filename at $apk"
+            if [[ "$filename" == *"arm64-v8a"* ]]; then
+              cp "$apk" ./ClassTrack-arm64-v8a.apk
+              cp "$apk" ./ClassTrack.apk
+            elif [[ "$filename" == *"armeabi-v7a"* ]]; then
+              cp "$apk" ./ClassTrack-armeabi-v7a.apk
+            elif [[ "$filename" == *"x86_64"* ]]; then
+              cp "$apk" ./ClassTrack-x86_64.apk
+            elif [[ "$filename" == *"x86"* ]]; then
+              cp "$apk" ./ClassTrack-x86.apk
+            elif [[ "$filename" == *"universal"* ]]; then
+              cp "$apk" ./ClassTrack-universal.apk
+            fi
+          done
+
+          # Fallback if specific ABI names weren't matched
+          if [ ! -f ./ClassTrack.apk ]; then
+            ANY_APK=$(find android/app/build/outputs/apk -type f -name "*.apk" ! -name "*unsigned*" | head -n 1)
+            if [ -n "$ANY_APK" ]; then
+              cp "$ANY_APK" ./ClassTrack.apk
+            fi
           fi
-          if [ -z "$APK_FILE" ]; then
-            APK_FILE=$(find android/app/build/outputs/apk -type f -name "app-debug.apk" | head -n 1)
-          fi
-          if [ -z "$APK_FILE" ]; then
-            APK_FILE=$(find android/app/build/outputs/apk -type f -name "*.apk" | head -n 1)
-          fi
-          echo "Selected APK: $APK_FILE"
-          if [ -z "$APK_FILE" ]; then
-            echo "::error::No APK file found in android/app/build/outputs/apk!"
-            exit 1
-          fi
-          cp "$APK_FILE" ./ClassTrack.apk
-          ls -lh ./ClassTrack.apk
+
+          echo "Prepared APKs for release:"
+          ls -lh ./ClassTrack*.apk
 
       - name: 🚀 Publish to GitHub Releases
         if: github.event_name != 'pull_request'
@@ -113,12 +128,17 @@ jobs:
             - **Branch**: `${{ github.ref_name }}`
             - **Type**: `${{ github.event.inputs.build_type || 'release' }}`
             
-            ### 📥 Installation Instructions
-            1. Download `ClassTrack.apk` below directly to your Android device.
-            2. Tap the file in your notification bar or downloads folder to install.
+            ### 📥 Which APK should I download?
+            - **`ClassTrack-arm64-v8a.apk`** (or **`ClassTrack.apk`**) (~30 MB): **Recommended!** For 99% of modern Android smartphones (Samsung, Google Pixel, OnePlus, Xiaomi, Motorola, etc.).
+            - **`ClassTrack-armeabi-v7a.apk`** (~25 MB): For older 32-bit Android phones.
+            - **`ClassTrack-x86_64.apk`** (~30 MB): For Android emulators or x86 Chromebooks/tablets.
+            
+            ### 📲 Installation Instructions
+            1. Download the appropriate `.apk` file directly to your Android device.
+            2. Tap the file in your notification bar or Downloads folder to install.
           draft: false
           prerelease: false
           files: |
-            ./ClassTrack.apk
+            ./ClassTrack*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
