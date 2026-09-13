@@ -59,6 +59,14 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
     .filter(item => item.period && item.subject)
     .sort((a, b) => (a.period?.startTime || '').localeCompare(b.period?.startTime || ''));
 
+  const now = new Date();
+  const currentMins = now.getHours() * 60 + now.getMinutes();
+  const upcomingTodayEntries = todayEntries.filter(item => {
+    if (!item.period) return false;
+    const [endH, endM] = item.period.endTime.split(':').map(Number);
+    return endH * 60 + endM >= currentMins;
+  });
+
   const firstClass = todayEntries[0];
 
   let held = 0;
@@ -413,7 +421,7 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                 </View>
               )}
 
-              {/* 2. Upcoming Classes Today */}
+              {/* 2. Upcoming Classes Today (Separated Individual Cards) */}
               {activePreviewTab === 'upcoming_classes' && (
                 <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: '#6366F1' }]}>
                   <View style={styles.widgetHeaderRow}>
@@ -422,24 +430,81 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                       <Text style={[styles.widgetHeaderTitle, { color: colors.text }]}>Upcoming Classes Today</Text>
                     </View>
                     <View style={[styles.liveBadge, { backgroundColor: '#EEF2FF' }]}>
-                      <Text style={[styles.liveBadgeText, { color: '#4F46E5' }]}>{todayEntries.length} Upcoming</Text>
+                      <Text style={[styles.liveBadgeText, { color: '#4F46E5' }]}>{upcomingTodayEntries.length} Left</Text>
                     </View>
                   </View>
 
-                  <View style={styles.widgetMainBody}>
-                    <Text style={[styles.widgetSubject, { color: colors.text }]}>
-                      {todayEntries.length > 0 ? `Upcoming Today (${todayEntries.length})` : 'All Classes Done 🎉'}
-                    </Text>
-                    <Text style={[styles.widgetMeta, { color: colors.textSecondary, marginTop: 4 }]}>
-                      {todayEntries.length > 0
-                        ? todayEntries.slice(0, 3).map(i => `${i.period?.startTime} ${i.subject?.name}`).join('  •  ')
-                        : 'No remaining sessions scheduled for today'}
-                    </Text>
-                  </View>
+                  {upcomingTodayEntries.length > 0 ? (
+                    <View style={styles.itemsListContainer}>
+                      {upcomingTodayEntries.slice(0, 4).map((item, idx) => {
+                        const [startH, startM] = (item.period?.startTime || '00:00').split(':').map(Number);
+                        const [endH, endM] = (item.period?.endTime || '00:00').split(':').map(Number);
+                        const sMins = startH * 60 + startM;
+                        const eMins = endH * 60 + endM;
+                        let statusText = 'UPCOMING';
+                        let statusBg = '#EEF2FF';
+                        let statusColor = '#4F46E5';
+
+                        if (currentMins >= sMins && currentMins <= eMins) {
+                          statusText = `IN SESSION (${eMins - currentMins}m left)`;
+                          statusBg = '#DCFCE7';
+                          statusColor = '#16A34A';
+                        } else if (currentMins < sMins) {
+                          const minsUntil = sMins - currentMins;
+                          if (minsUntil <= 60) {
+                            statusText = `STARTS IN ${minsUntil}m`;
+                            statusBg = '#FEF3C7';
+                            statusColor = '#D97706';
+                          }
+                        }
+
+                        return (
+                          <View
+                            key={item.entry.id || idx}
+                            style={[styles.classItemCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
+                          >
+                            <View style={[styles.cardAccentBar, { backgroundColor: '#6366F1' }]} />
+                            <View style={{ flex: 1 }}>
+                              <View style={styles.cardHeaderRow}>
+                                <View style={[styles.timeBadge, { backgroundColor: '#312E81' }]}>
+                                  <Text style={styles.timeBadgeText}>
+                                    ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
+                                  </Text>
+                                </View>
+                                <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+                                  <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusText}</Text>
+                                </View>
+                              </View>
+                              <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
+                                {item.subject?.name || 'Class'}
+                              </Text>
+                              <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
+                                {item.entry.roomOverride || item.subject?.room ? `📍 ${item.entry.roomOverride || item.subject?.room}` : '📍 Room TBA'}
+                                {item.entry.teacher || item.subject?.teacher ? `  •  👤 ${item.entry.teacher || item.subject?.teacher}` : ''}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                      {upcomingTodayEntries.length > 4 && (
+                        <Text style={[styles.moreText, { color: colors.primary }]}>
+                          + {upcomingTodayEntries.length - 4} more upcoming classes in app
+                        </Text>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={styles.emptyCardBox}>
+                      <Ionicons name="checkmark-circle" size={32} color="#10B981" />
+                      <Text style={[styles.emptyCardTitle, { color: colors.text }]}>All Classes Completed Today! 🎉</Text>
+                      <Text style={[styles.emptyCardSub, { color: colors.textSecondary }]}>
+                        No remaining sessions for today. Take time to relax and review your notes.
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
 
-              {/* 3. Tomorrow's Classes */}
+              {/* 3. Tomorrow's Classes (Separated Individual Cards) */}
               {activePreviewTab === 'tomorrows_classes' && (
                 <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: '#8B5CF6' }]}>
                   <View style={styles.widgetHeaderRow}>
@@ -452,20 +517,54 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                     </View>
                   </View>
 
-                  <View style={styles.widgetMainBody}>
-                    <Text style={[styles.widgetSubject, { color: colors.text }]}>
-                      {tomorrowEntries.length > 0 ? `Tomorrow (${tomorrowEntries.length} Lectures)` : 'No Classes Tomorrow 🎉'}
-                    </Text>
-                    <Text style={[styles.widgetMeta, { color: colors.textSecondary, marginTop: 4 }]}>
-                      {tomorrowEntries.length > 0
-                        ? tomorrowEntries.slice(0, 3).map(i => `${i.period?.startTime} ${i.subject?.name}`).join('  •  ')
-                        : 'Enjoy your day off tomorrow!'}
-                    </Text>
-                  </View>
+                  {tomorrowEntries.length > 0 ? (
+                    <View style={styles.itemsListContainer}>
+                      {tomorrowEntries.slice(0, 4).map((item, idx) => (
+                        <View
+                          key={item.entry.id || idx}
+                          style={[styles.classItemCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
+                        >
+                          <View style={[styles.cardAccentBar, { backgroundColor: '#8B5CF6' }]} />
+                          <View style={{ flex: 1 }}>
+                            <View style={styles.cardHeaderRow}>
+                              <View style={[styles.timeBadge, { backgroundColor: '#4C1D95' }]}>
+                                <Text style={styles.timeBadgeText}>
+                                  ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
+                                </Text>
+                              </View>
+                              <View style={[styles.statusBadge, { backgroundColor: '#F3E8FF' }]}>
+                                <Text style={[styles.statusBadgeText, { color: '#7C3AED' }]}>LECTURE {idx + 1}</Text>
+                              </View>
+                            </View>
+                            <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
+                              {item.subject?.name || 'Class'}
+                            </Text>
+                            <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
+                              {item.entry.roomOverride || item.subject?.room ? `📍 ${item.entry.roomOverride || item.subject?.room}` : '📍 Room TBA'}
+                              {item.entry.teacher || item.subject?.teacher ? `  •  👤 ${item.entry.teacher || item.subject?.teacher}` : ''}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                      {tomorrowEntries.length > 4 && (
+                        <Text style={[styles.moreText, { color: '#8B5CF6' }]}>
+                          + {tomorrowEntries.length - 4} more lectures tomorrow in app
+                        </Text>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={styles.emptyCardBox}>
+                      <Ionicons name="sunny" size={32} color="#F59E0B" />
+                      <Text style={[styles.emptyCardTitle, { color: colors.text }]}>No Classes Tomorrow! 🌴</Text>
+                      <Text style={[styles.emptyCardSub, { color: colors.textSecondary }]}>
+                        You have no lectures scheduled for tomorrow. Enjoy your break!
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
 
-              {/* 4. Weekly Timetable Overview */}
+              {/* 4. Weekly Timetable Overview (Structured Day-by-Day View) */}
               {activePreviewTab === 'weekly_timetable' && (
                 <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: '#EC4899' }]}>
                   <View style={styles.widgetHeaderRow}>
@@ -478,18 +577,82 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                     </View>
                   </View>
 
-                  <View style={styles.widgetMainBody}>
-                    <Text style={[styles.widgetSubject, { color: colors.text }]}>
-                      Weekly Schedule Overview
-                    </Text>
-                    <Text style={[styles.widgetMeta, { color: colors.textSecondary, marginTop: 4 }]}>
-                      Mon-Fri Timetable Grid • Tap to open full schedule details
-                    </Text>
+                  <View style={styles.weeklyGridContainer}>
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dayName, d) => {
+                      const dayEntries = entries
+                        .filter(e => e.weekday === d)
+                        .map(e => ({
+                          entry: e,
+                          period: periods.find(p => p.id === e.periodId),
+                          subject: subjects.find(s => s.id === e.subjectId),
+                        }))
+                        .filter(i => i.subject)
+                        .sort((a, b) => (a.period?.startTime || '').localeCompare(b.period?.startTime || ''));
+
+                      const isCurrentDay = d === todayWeekday;
+
+                      return (
+                        <View
+                          key={dayName}
+                          style={[
+                            styles.weeklyDayRow,
+                            { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle },
+                            isCurrentDay && { borderColor: '#EC4899', backgroundColor: colors.surfaceVariant },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.weeklyDayPill,
+                              { backgroundColor: isCurrentDay ? '#EC4899' : colors.card },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.weeklyDayPillText,
+                                { color: isCurrentDay ? '#FFFFFF' : colors.textSecondary },
+                              ]}
+                            >
+                              {dayName.toUpperCase()}{isCurrentDay ? ' ★' : ''}
+                            </Text>
+                          </View>
+
+                          <View style={{ flex: 1, marginHorizontal: 8 }}>
+                            <Text
+                              style={[
+                                styles.weeklyDaySubjectsText,
+                                { color: isCurrentDay ? colors.text : colors.textSecondary, fontWeight: isCurrentDay ? '700' : '500' },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {dayEntries.length > 0
+                                ? dayEntries.map(e => e.subject?.name).join('  •  ')
+                                : 'No classes scheduled'}
+                            </Text>
+                          </View>
+
+                          <View
+                            style={[
+                              styles.weeklyCountBadge,
+                              { backgroundColor: dayEntries.length > 0 ? (isCurrentDay ? '#FCE7F3' : colors.card) : 'transparent' },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.weeklyCountText,
+                                { color: isCurrentDay ? '#DB2777' : colors.textTertiary },
+                              ]}
+                            >
+                              {dayEntries.length > 0 ? `${dayEntries.length} cls` : 'OFF'}
+                            </Text>
+                          </View>
+                        </View>
+                      );
+                    })}
                   </View>
                 </View>
               )}
 
-              {/* 2. Today's Schedule Deck */}
+              {/* 5. Today's Schedule Deck (Separated Individual Cards) */}
               {activePreviewTab === 'today_schedule' && (
                 <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: '#6366F1' }]}>
                   <View style={styles.widgetHeaderRow}>
@@ -502,16 +665,70 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                     </View>
                   </View>
 
-                  <View style={styles.widgetMainBody}>
-                    <Text style={[styles.widgetSubject, { color: colors.text }]}>
-                      {todayEntries.length > 0 ? `Today: ${todayEntries.length} Scheduled Lectures` : 'No Classes Today 🎉'}
-                    </Text>
-                    <Text style={[styles.widgetMeta, { color: colors.textSecondary, marginTop: 4 }]}>
-                      {todayEntries.length > 0
-                        ? `1st: ${firstClass?.subject?.name} at ${firstClass?.period?.startTime}`
-                        : 'Rest & review your schedule'}
-                    </Text>
-                  </View>
+                  {todayEntries.length > 0 ? (
+                    <View style={styles.itemsListContainer}>
+                      {todayEntries.slice(0, 4).map((item, idx) => {
+                        const [startH, startM] = (item.period?.startTime || '00:00').split(':').map(Number);
+                        const [endH, endM] = (item.period?.endTime || '00:00').split(':').map(Number);
+                        const sMins = startH * 60 + startM;
+                        const eMins = endH * 60 + endM;
+                        let statusText = 'UPCOMING';
+                        let statusBg = '#EEF2FF';
+                        let statusColor = '#4F46E5';
+
+                        if (currentMins >= sMins && currentMins <= eMins) {
+                          statusText = `IN SESSION (${eMins - currentMins}m)`;
+                          statusBg = '#DCFCE7';
+                          statusColor = '#16A34A';
+                        } else if (currentMins > eMins) {
+                          statusText = 'DONE ✓';
+                          statusBg = '#F1F5F9';
+                          statusColor = '#64748B';
+                        }
+
+                        return (
+                          <View
+                            key={item.entry.id || idx}
+                            style={[styles.classItemCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
+                          >
+                            <View style={[styles.cardAccentBar, { backgroundColor: '#6366F1' }]} />
+                            <View style={{ flex: 1 }}>
+                              <View style={styles.cardHeaderRow}>
+                                <View style={[styles.timeBadge, { backgroundColor: '#312E81' }]}>
+                                  <Text style={styles.timeBadgeText}>
+                                    ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
+                                  </Text>
+                                </View>
+                                <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+                                  <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusText}</Text>
+                                </View>
+                              </View>
+                              <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
+                                {item.subject?.name || 'Class'}
+                              </Text>
+                              <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
+                                {item.entry.roomOverride || item.subject?.room ? `📍 ${item.entry.roomOverride || item.subject?.room}` : '📍 Room TBA'}
+                                {item.entry.teacher || item.subject?.teacher ? `  •  👤 ${item.entry.teacher || item.subject?.teacher}` : ''}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                      {todayEntries.length > 4 && (
+                        <Text style={[styles.moreText, { color: colors.primary }]}>
+                          + {todayEntries.length - 4} more lectures today in app
+                        </Text>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={styles.emptyCardBox}>
+                      <Ionicons name="cafe" size={32} color="#6366F1" />
+                      <Text style={[styles.emptyCardTitle, { color: colors.text }]}>No Classes Scheduled Today ☕</Text>
+                      <Text style={[styles.emptyCardSub, { color: colors.textSecondary }]}>
+                        Enjoy your day off! Relax, recharge, or catch up on studies.
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
 
@@ -861,5 +1078,114 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     marginTop: 2,
+  },
+  itemsListContainer: {
+    gap: 8,
+    marginTop: 4,
+  },
+  classItemCard: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 10,
+    overflow: 'hidden',
+  },
+  cardAccentBar: {
+    width: 4,
+    borderRadius: 2,
+    marginRight: 10,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  timeBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  timeBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#E0E7FF',
+  },
+  statusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  statusBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  cardSubjectTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  cardMetaText: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  moreText: {
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  emptyCardBox: {
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+  },
+  emptyCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  emptyCardSub: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  weeklyGridContainer: {
+    gap: 6,
+    marginTop: 4,
+  },
+  weeklyDayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+  },
+  weeklyDayPill: {
+    width: 52,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weeklyDayPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  weeklyDaySubjectsText: {
+    fontSize: 11,
+  },
+  weeklyCountBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  weeklyCountText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
 });

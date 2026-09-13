@@ -467,10 +467,10 @@ index 0000000..f654816
 +    }
 +}
 diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java
-index 89db3bb..2eee95f 100644
+index 89db3bb..ae5b59e 100644
 --- a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java
 +++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java
-@@ -1,27 +1,57 @@
+@@ -1,27 +1,58 @@
  package com.reactnativehomewidget.widget;
  
 +import android.app.AlarmManager;
@@ -485,6 +485,7 @@ index 89db3bb..2eee95f 100644
 +import android.graphics.Color;
 +import android.os.SystemClock;
  import android.util.Log;
++import android.view.View;
  import android.widget.RemoteViews;
  
 +import com.reactnativehomewidget.R;
@@ -531,7 +532,7 @@ index 89db3bb..2eee95f 100644
          }
      }
  
-@@ -29,35 +59,375 @@ public class HomeWidgetProvider extends AppWidgetProvider {
+@@ -29,35 +60,493 @@ public class HomeWidgetProvider extends AppWidgetProvider {
      public void onReceive(Context context, Intent intent) {
          super.onReceive(context, intent);
          
@@ -555,18 +556,27 @@ index 89db3bb..2eee95f 100644
              
 -            // Handle the action URL if provided
 -            if (actionUrl != null && !actionUrl.isEmpty()) {
+-                try {
+-                    Intent actionIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(actionUrl));
+-                    actionIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+-                    context.startActivity(actionIntent);
+-                } catch (Exception e) {
+-                    Log.e(TAG, "Failed to open action URL: " + actionUrl, e);
 +            try {
 +                Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
 +                if (launchIntent != null) {
 +                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 +                    context.startActivity(launchIntent);
-+                }
+                 }
 +            } catch (Exception e) {
 +                Log.e(TAG, "Failed to launch main activity on widget click", e);
-+            }
-+        }
-+    }
-+
+             }
+         }
+     }
+ 
+-    static void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
+-        // This will be handled by the ReactNativeHomeWidgetModule
+-        Log.d(TAG, "updateAppWidget called for widget ID: " + appWidgetId);
 +    private static void schedulePeriodicAlarm(Context context) {
 +        try {
 +            AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
@@ -643,7 +653,7 @@ index 89db3bb..2eee95f 100644
 +                defaultBadge = "EXAMS";
 +            } else if ("UpcomingClassesWidget".equals(widgetType)) {
 +                defaultTag = "⏳ UPCOMING CLASSES";
-+                defaultTitle = "Upcoming Today";
++                defaultTitle = "Upcoming Classes Today";
 +                defaultContent = "Open app to view schedule";
 +                defaultBadge = "UPCOMING";
 +            } else if ("TomorrowsClassesWidget".equals(widgetType)) {
@@ -689,196 +699,309 @@ index 89db3bb..2eee95f 100644
 +            String badge = prefs.getString(widgetType + "_badge", defaultBadge);
 +            String textColorStr = prefs.getString(widgetType + "_textColor", "#FFFFFF");
 +
-+            // Real-Time Dynamic Schedule Calculations (works even when app process is closed)
-+            if ("NextClassWidget".equals(widgetType) || "UpcomingClassesWidget".equals(widgetType) || "TomorrowsClassesWidget".equals(widgetType) || "WeeklyTimetableWidget".equals(widgetType) || "TodayScheduleWidget".equals(widgetType)) {
-+                try {
-+                    JSONArray scheduleArray = new JSONArray(rawScheduleJson);
-+                    List<JSONObject> todayList = new ArrayList<>();
-+                    List<JSONObject> tomorrowList = new ArrayList<>();
-+
-+                    for (int i = 0; i < scheduleArray.length(); i++) {
-+                        JSONObject item = scheduleArray.getJSONObject(i);
-+                        int w = item.optInt("weekday", -1);
-+                        if (w == todayWeekday) {
-+                            todayList.add(item);
-+                        } else if (w == tomorrowWeekday) {
-+                            tomorrowList.add(item);
-+                        }
-+                    }
-+
-+                    Collections.sort(todayList, (a, b) -> a.optString("startTime").compareTo(b.optString("startTime")));
-+                    Collections.sort(tomorrowList, (a, b) -> a.optString("startTime").compareTo(b.optString("startTime")));
-+
-+                    if ("NextClassWidget".equals(widgetType)) {
-+                        tag = "⏰ NEXT CLASS";
-+                        boolean found = false;
-+                        for (JSONObject item : todayList) {
-+                            String startStr = item.optString("startTime", "00:00");
-+                            String endStr = item.optString("endTime", "00:00");
-+                            int startMins = parseTimeMins(startStr);
-+                            int endMins = parseTimeMins(endStr);
-+                            String subject = item.optString("subjectName", "Class");
-+                            String room = item.optString("room", "");
-+                            String teacher = item.optString("teacher", "");
-+
-+                            if (currentMins >= startMins && currentMins <= endMins) {
-+                                int minsLeft = endMins - currentMins;
-+                                badge = "In Session (" + minsLeft + "m left)";
-+                                title = subject;
-+                                content = "⏰ " + startStr + "-" + endStr + (room.isEmpty() ? "" : "  •  📍 " + room) + (teacher.isEmpty() ? "" : "  •  👤 " + teacher);
-+                                found = true;
-+                                break;
-+                            } else if (currentMins < startMins) {
-+                                int minsUntil = startMins - currentMins;
-+                                badge = "Starts in " + minsUntil + "m";
-+                                title = subject;
-+                                content = "⏰ " + startStr + "-" + endStr + (room.isEmpty() ? "" : "  •  📍 " + room) + (teacher.isEmpty() ? "" : "  •  👤 " + teacher);
-+                                found = true;
-+                                break;
-+                            }
-+                        }
-+
-+                        if (!found) {
-+                            if (todayList.size() > 0) {
-+                                badge = "Done for Today 🎉";
-+                                title = "No More Classes Today";
-+                                JSONObject first = todayList.get(0);
-+                                content = "Rest & review ☕  •  Tomorrow: " + first.optString("subjectName") + " @ " + first.optString("startTime");
-+                            } else {
-+                                badge = "Free Day";
-+                                title = "No Classes Today";
-+                                content = "No scheduled sessions for today. Relax!";
-+                            }
-+                        }
-+                    } else if ("UpcomingClassesWidget".equals(widgetType)) {
-+                        tag = "⏳ UPCOMING CLASSES";
-+                        List<JSONObject> upcoming = new ArrayList<>();
-+                        for (JSONObject item : todayList) {
-+                            int startMins = parseTimeMins(item.optString("startTime", "00:00"));
-+                            if (startMins > currentMins) {
-+                                upcoming.add(item);
-+                            }
-+                        }
-+
-+                        badge = upcoming.size() + " UPCOMING";
-+                        if (upcoming.size() > 0) {
-+                            title = "Upcoming Today (" + upcoming.size() + " Left)";
-+                            StringBuilder sb = new StringBuilder();
-+                            for (int k = 0; k < Math.min(upcoming.size(), 3); k++) {
-+                                JSONObject item = upcoming.get(k);
-+                                if (k > 0) sb.append("  •  ");
-+                                sb.append(item.optString("startTime")).append(" ").append(item.optString("subjectName"));
-+                                String r = item.optString("room", "");
-+                                if (!r.isEmpty()) sb.append(" (").append(r).append(")");
-+                            }
-+                            content = sb.toString();
-+                        } else {
-+                            title = "No More Classes Today";
-+                            content = "All sessions completed for today 🎉";
-+                        }
-+                    } else if ("TomorrowsClassesWidget".equals(widgetType)) {
-+                        tag = "🌅 TOMORROW'S CLASSES";
-+                        badge = tomorrowList.size() + " CLASSES";
-+                        if (tomorrowList.size() > 0) {
-+                            title = "Tomorrow (" + tomorrowList.size() + " Lectures)";
-+                            StringBuilder sb = new StringBuilder();
-+                            for (int k = 0; k < Math.min(tomorrowList.size(), 4); k++) {
-+                                JSONObject item = tomorrowList.get(k);
-+                                if (k > 0) sb.append("  •  ");
-+                                sb.append(item.optString("startTime")).append(" ").append(item.optString("subjectName"));
-+                                String r = item.optString("room", "");
-+                                if (!r.isEmpty()) sb.append(" (").append(r).append(")");
-+                            }
-+                            content = sb.toString();
-+                        } else {
-+                            title = "No Classes Tomorrow";
-+                            content = "No scheduled lectures for tomorrow. Enjoy your break!";
-+                        }
-+                    } else if ("WeeklyTimetableWidget".equals(widgetType)) {
-+                        tag = "📅 WEEKLY TIMETABLE";
-+                        badge = scheduleArray.length() + " SESSIONS";
-+                        title = "Weekly Timetable Overview";
-+                        StringBuilder sb = new StringBuilder();
-+                        String[] dayNames = new String[]{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
-+                        int count = 0;
-+                        for (int d = 0; d < 7; d++) {
-+                            List<JSONObject> dayEntries = new ArrayList<>();
-+                            for (int i = 0; i < scheduleArray.length(); i++) {
-+                                JSONObject item = scheduleArray.getJSONObject(i);
-+                                if (item.optInt("weekday") == d) {
-+                                    dayEntries.add(item);
-+                                }
-+                            }
-+                            if (dayEntries.size() > 0) {
-+                                if (count > 0) sb.append(" | ");
-+                                sb.append(dayNames[d]).append(": ");
-+                                for (int j = 0; j < Math.min(dayEntries.size(), 2); j++) {
-+                                    if (j > 0) sb.append(", ");
-+                                    sb.append(dayEntries.get(j).optString("subjectName"));
-+                                }
-+                                count++;
-+                            }
-+                        }
-+                        content = sb.length() > 0 ? sb.toString() : "Tap to open timetable";
-+                    }
-+                } catch (Exception e) {
-+                    Log.e(TAG, "Error performing dynamic schedule calculation", e);
-+                }
-+            } else if ("ExamsWidget".equals(widgetType)) {
-+                tag = "📝 UPCOMING EXAM";
-                 try {
--                    Intent actionIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(actionUrl));
--                    actionIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
--                    context.startActivity(actionIntent);
-+                    JSONArray examsArray = new JSONArray(rawExamsJson);
-+                    JSONObject nearest = null;
-+                    long minDiff = Long.MAX_VALUE;
-+                    long todayMillis = System.currentTimeMillis();
-+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-+
-+                    for (int i = 0; i < examsArray.length(); i++) {
-+                        JSONObject exam = examsArray.getJSONObject(i);
-+                        String dateStr = exam.optString("date", "");
-+                        if (!dateStr.isEmpty()) {
-+                            Date d = sdf.parse(dateStr);
-+                            if (d != null && d.getTime() >= todayMillis - 86400000L) {
-+                                long diff = d.getTime() - todayMillis;
-+                                if (diff < minDiff) {
-+                                    minDiff = diff;
-+                                    nearest = exam;
-+                                }
-+                            }
-+                        }
-+                    }
-+
-+                    if (nearest != null) {
-+                        title = nearest.optString("title", "Upcoming Exam");
-+                        String dateStr = nearest.optString("date", "");
-+                        String roomStr = nearest.optString("room", "");
-+                        int daysLeft = (int) Math.ceil((double) minDiff / (1000 * 60 * 60 * 24));
-+                        if (daysLeft <= 0) badge = "TODAY! 📝";
-+                        else if (daysLeft == 1) badge = "TOMORROW! ⏳";
-+                        else badge = "In " + daysLeft + " days";
-+
-+                        content = "📅 " + dateStr + (roomStr.isEmpty() ? "" : "  •  📍 Room " + roomStr);
-+                    }
-                 } catch (Exception e) {
--                    Log.e(TAG, "Failed to open action URL: " + actionUrl, e);
-+                    Log.e(TAG, "Error performing dynamic exam countdown calculation", e);
-                 }
-             }
-+
 +            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.home_widget);
 +
-+            views.setTextViewText(R.id.widget_title, title);
-+            views.setTextViewText(R.id.widget_content, content);
++            // Lists parsed from schedule_json
++            List<JSONObject> todayList = new ArrayList<>();
++            List<JSONObject> tomorrowList = new ArrayList<>();
++            List<JSONObject> upcomingList = new ArrayList<>();
++            JSONArray scheduleArray = new JSONArray();
++
++            try {
++                scheduleArray = new JSONArray(rawScheduleJson);
++                for (int i = 0; i < scheduleArray.length(); i++) {
++                    JSONObject item = scheduleArray.getJSONObject(i);
++                    int w = item.optInt("weekday", -1);
++                    if (w == todayWeekday) {
++                        todayList.add(item);
++                    } else if (w == tomorrowWeekday) {
++                        tomorrowList.add(item);
++                    }
++                }
++
++                Collections.sort(todayList, (a, b) -> a.optString("startTime").compareTo(b.optString("startTime")));
++                Collections.sort(tomorrowList, (a, b) -> a.optString("startTime").compareTo(b.optString("startTime")));
++
++                for (JSONObject item : todayList) {
++                    int startMins = parseTimeMins(item.optString("startTime", "00:00"));
++                    int endMins = parseTimeMins(item.optString("endTime", "00:00"));
++                    if (endMins >= currentMins) {
++                        upcomingList.add(item);
++                    }
++                }
++            } catch (Exception e) {
++                Log.e(TAG, "Error parsing schedule JSON", e);
++            }
++
++            // Real-time calculations and view mapping per widget type
++            if ("UpcomingClassesWidget".equals(widgetType) || "TodayScheduleWidget".equals(widgetType) || "TomorrowsClassesWidget".equals(widgetType)) {
++                // Multi-Item View
++                views.setViewVisibility(R.id.single_item_container, View.GONE);
++                views.setViewVisibility(R.id.weekly_container, View.GONE);
++                views.setViewVisibility(R.id.multi_items_container, View.VISIBLE);
++
++                List<JSONObject> targetList;
++                String headerLabel;
++
++                if ("UpcomingClassesWidget".equals(widgetType)) {
++                    targetList = upcomingList;
++                    tag = "⏳ UPCOMING CLASSES";
++                    badge = targetList.size() + " LEFT";
++                    headerLabel = "Upcoming Today (" + targetList.size() + " Remaining)";
++                } else if ("TomorrowsClassesWidget".equals(widgetType)) {
++                    targetList = tomorrowList;
++                    tag = "🌅 TOMORROW'S CLASSES";
++                    badge = targetList.size() + " CLASSES";
++                    headerLabel = "Tomorrow's Schedule (" + targetList.size() + " Lectures)";
++                } else { // TodayScheduleWidget
++                    targetList = todayList;
++                    tag = "📚 TODAY'S DECK";
++                    badge = targetList.size() + " CLASSES";
++                    headerLabel = "Today's Schedule Deck (" + targetList.size() + " Total)";
++                }
++
++                views.setTextViewText(R.id.multi_header_title, headerLabel);
++
++                int[] cardIds = new int[]{R.id.class_item_1, R.id.class_item_2, R.id.class_item_3, R.id.class_item_4};
++                int[] timeIds = new int[]{R.id.class_item_1_time, R.id.class_item_2_time, R.id.class_item_3_time, R.id.class_item_4_time};
++                int[] statusIds = new int[]{R.id.class_item_1_status, R.id.class_item_2_status, R.id.class_item_3_status, R.id.class_item_4_status};
++                int[] titleIds = new int[]{R.id.class_item_1_title, R.id.class_item_2_title, R.id.class_item_3_title, R.id.class_item_4_title};
++                int[] roomIds = new int[]{R.id.class_item_1_room, R.id.class_item_2_room, R.id.class_item_3_room, R.id.class_item_4_room};
++
++                int maxCards = cardIds.length;
++                int displayedCount = Math.min(targetList.size(), maxCards);
++
++                for (int k = 0; k < maxCards; k++) {
++                    if (k < displayedCount) {
++                        JSONObject item = targetList.get(k);
++                        views.setViewVisibility(cardIds[k], View.VISIBLE);
++
++                        String startStr = item.optString("startTime", "--:--");
++                        String endStr = item.optString("endTime", "");
++                        String timeRange = endStr.isEmpty() ? startStr : (startStr + " - " + endStr);
++                        views.setTextViewText(timeIds[k], timeRange);
++
++                        // Status pill calculation
++                        int startMins = parseTimeMins(startStr);
++                        int endMins = parseTimeMins(endStr);
++                        String statusStr = "CLASS #" + (k + 1);
++
++                        if ("UpcomingClassesWidget".equals(widgetType) || "TodayScheduleWidget".equals(widgetType)) {
++                            if (currentMins >= startMins && currentMins <= endMins) {
++                                int minsLeft = endMins - currentMins;
++                                statusStr = "IN SESSION (" + minsLeft + "m)";
++                            } else if (currentMins < startMins) {
++                                int minsUntil = startMins - currentMins;
++                                if (minsUntil < 60) {
++                                    statusStr = "IN " + minsUntil + "m";
++                                } else {
++                                    statusStr = "UPCOMING";
++                                }
++                            } else if (currentMins > endMins) {
++                                statusStr = "DONE ✓";
++                            }
++                        } else {
++                            statusStr = "LECTURE " + (k + 1);
++                        }
++                        views.setTextViewText(statusIds[k], statusStr);
++
++                        String subName = item.optString("subjectName", "Class");
++                        views.setTextViewText(titleIds[k], subName);
++
++                        String room = item.optString("room", "");
++                        String teacher = item.optString("teacher", "");
++                        StringBuilder meta = new StringBuilder();
++                        if (!room.isEmpty()) meta.append("📍 ").append(room);
++                        if (!teacher.isEmpty()) {
++                            if (meta.length() > 0) meta.append("  •  ");
++                            meta.append("👤 ").append(teacher);
++                        }
++                        if (meta.length() == 0) meta.append("No room assigned");
++                        views.setTextViewText(roomIds[k], meta.toString());
++                    } else {
++                        views.setViewVisibility(cardIds[k], View.GONE);
++                    }
++                }
++
++                // Show more counter if > 4 classes
++                if (targetList.size() > maxCards) {
++                    views.setViewVisibility(R.id.class_more_text, View.VISIBLE);
++                    int remaining = targetList.size() - maxCards;
++                    views.setTextViewText(R.id.class_more_text, "+ " + remaining + " more in ClassTrack");
++                } else {
++                    views.setViewVisibility(R.id.class_more_text, View.GONE);
++                }
++
++                // Empty state if no classes
++                if (targetList.isEmpty()) {
++                    views.setViewVisibility(R.id.class_empty_message, View.VISIBLE);
++                    if ("UpcomingClassesWidget".equals(widgetType)) {
++                        views.setTextViewText(R.id.class_empty_message, "All classes completed for today 🎉");
++                    } else if ("TomorrowsClassesWidget".equals(widgetType)) {
++                        views.setTextViewText(R.id.class_empty_message, "No classes scheduled for tomorrow. Enjoy your break! 🌴");
++                    } else {
++                        views.setTextViewText(R.id.class_empty_message, "No classes scheduled for today. Take time off! ☕");
++                    }
++                } else {
++                    views.setViewVisibility(R.id.class_empty_message, View.GONE);
++                }
++
++            } else if ("WeeklyTimetableWidget".equals(widgetType)) {
++                // Structured Weekly Timetable View
++                views.setViewVisibility(R.id.single_item_container, View.GONE);
++                views.setViewVisibility(R.id.multi_items_container, View.GONE);
++                views.setViewVisibility(R.id.weekly_container, View.VISIBLE);
++
++                tag = "📅 WEEKLY TIMETABLE";
++                badge = scheduleArray.length() + " SESSIONS";
++                views.setTextViewText(R.id.weekly_header_title, "Weekly Timetable (" + scheduleArray.length() + " Sessions)");
++
++                int[] dayRowIds = new int[]{R.id.weekly_day_1, R.id.weekly_day_2, R.id.weekly_day_3, R.id.weekly_day_4, R.id.weekly_day_5, R.id.weekly_day_6};
++                int[] dayPillIds = new int[]{R.id.weekly_day_1_pill, R.id.weekly_day_2_pill, R.id.weekly_day_3_pill, R.id.weekly_day_4_pill, R.id.weekly_day_5_pill, R.id.weekly_day_6_pill};
++                int[] daySubIds = new int[]{R.id.weekly_day_1_subjects, R.id.weekly_day_2_subjects, R.id.weekly_day_3_subjects, R.id.weekly_day_4_subjects, R.id.weekly_day_5_subjects, R.id.weekly_day_6_subjects};
++                int[] dayCountIds = new int[]{R.id.weekly_day_1_count, R.id.weekly_day_2_count, R.id.weekly_day_3_count, R.id.weekly_day_4_count, R.id.weekly_day_5_count, R.id.weekly_day_6_count};
++                String[] dayNames = new String[]{"MON", "TUE", "WED", "THU", "FRI", "SAT"};
++
++                int totalCount = 0;
++                for (int d = 0; d < 6; d++) {
++                    List<JSONObject> dayEntries = new ArrayList<>();
++                    for (int i = 0; i < scheduleArray.length(); i++) {
++                        JSONObject item = scheduleArray.optJSONObject(i);
++                        if (item != null && item.optInt("weekday", -1) == d) {
++                            dayEntries.add(item);
++                        }
++                    }
++                    Collections.sort(dayEntries, (a, b) -> a.optString("startTime").compareTo(b.optString("startTime")));
++
++                    // Highlight today
++                    if (d == todayWeekday) {
++                        views.setInt(dayPillIds[d], "setBackgroundResource", R.drawable.widget_day_pill_active);
++                        views.setTextViewText(dayPillIds[d], dayNames[d] + " ★");
++                    } else {
++                        views.setInt(dayPillIds[d], "setBackgroundResource", R.drawable.widget_day_pill);
++                        views.setTextViewText(dayPillIds[d], dayNames[d]);
++                    }
++
++                    if (dayEntries.size() > 0) {
++                        totalCount += dayEntries.size();
++                        StringBuilder sb = new StringBuilder();
++                        for (int j = 0; j < Math.min(dayEntries.size(), 3); j++) {
++                            if (j > 0) sb.append("  •  ");
++                            sb.append(dayEntries.get(j).optString("subjectName"));
++                        }
++                        views.setTextViewText(daySubIds[d], sb.toString());
++                        views.setTextViewText(dayCountIds[d], dayEntries.size() + " classes");
++                    } else {
++                        views.setTextViewText(daySubIds[d], "No Classes");
++                        views.setTextViewText(dayCountIds[d], "OFF");
++                    }
++                }
++
++                if (totalCount == 0) {
++                    views.setViewVisibility(R.id.weekly_empty_message, View.VISIBLE);
++                } else {
++                    views.setViewVisibility(R.id.weekly_empty_message, View.GONE);
++                }
++
++            } else {
++                // Standard Single-Item View (NextClass, Attendance, Exams, QuickActions, SmartTips, Holiday, AttendanceAnalytics)
++                views.setViewVisibility(R.id.single_item_container, View.VISIBLE);
++                views.setViewVisibility(R.id.multi_items_container, View.GONE);
++                views.setViewVisibility(R.id.weekly_container, View.GONE);
++
++                if ("NextClassWidget".equals(widgetType)) {
++                    tag = "⏰ NEXT CLASS";
++                    boolean found = false;
++                    for (JSONObject item : todayList) {
++                        String startStr = item.optString("startTime", "00:00");
++                        String endStr = item.optString("endTime", "00:00");
++                        int startMins = parseTimeMins(startStr);
++                        int endMins = parseTimeMins(endStr);
++                        String subject = item.optString("subjectName", "Class");
++                        String room = item.optString("room", "");
++                        String teacher = item.optString("teacher", "");
++
++                        if (currentMins >= startMins && currentMins <= endMins) {
++                            int minsLeft = endMins - currentMins;
++                            badge = "In Session (" + minsLeft + "m left)";
++                            title = subject;
++                            content = "⏰ " + startStr + "-" + endStr + (room.isEmpty() ? "" : "  •  📍 " + room) + (teacher.isEmpty() ? "" : "  •  👤 " + teacher);
++                            found = true;
++                            break;
++                        } else if (currentMins < startMins) {
++                            int minsUntil = startMins - currentMins;
++                            badge = "Starts in " + minsUntil + "m";
++                            title = subject;
++                            content = "⏰ " + startStr + "-" + endStr + (room.isEmpty() ? "" : "  •  📍 " + room) + (teacher.isEmpty() ? "" : "  •  👤 " + teacher);
++                            found = true;
++                            break;
++                        }
++                    }
++
++                    if (!found) {
++                        if (todayList.size() > 0) {
++                            badge = "Done for Today 🎉";
++                            title = "No More Classes Today";
++                            JSONObject first = todayList.get(0);
++                            content = "Rest & review ☕  •  Tomorrow: " + first.optString("subjectName") + " @ " + first.optString("startTime");
++                        } else {
++                            badge = "Free Day";
++                            title = "No Classes Today";
++                            content = "No scheduled sessions for today. Relax!";
++                        }
++                    }
++                } else if ("ExamsWidget".equals(widgetType)) {
++                    tag = "📝 UPCOMING EXAM";
++                    try {
++                        JSONArray examsArray = new JSONArray(rawExamsJson);
++                        JSONObject nearest = null;
++                        long minDiff = Long.MAX_VALUE;
++                        long todayMillis = System.currentTimeMillis();
++                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
++
++                        for (int i = 0; i < examsArray.length(); i++) {
++                            JSONObject exam = examsArray.getJSONObject(i);
++                            String dateStr = exam.optString("date", "");
++                            if (!dateStr.isEmpty()) {
++                                Date d = sdf.parse(dateStr);
++                                if (d != null && d.getTime() >= todayMillis - 86400000L) {
++                                    long diff = d.getTime() - todayMillis;
++                                    if (diff < minDiff) {
++                                        minDiff = diff;
++                                        nearest = exam;
++                                    }
++                                }
++                            }
++                        }
++
++                        if (nearest != null) {
++                            title = nearest.optString("title", "Upcoming Exam");
++                            String dateStr = nearest.optString("date", "");
++                            String roomStr = nearest.optString("room", "");
++                            int daysLeft = (int) Math.ceil((double) minDiff / (1000 * 60 * 60 * 24));
++                            if (daysLeft <= 0) badge = "TODAY! 📝";
++                            else if (daysLeft == 1) badge = "TOMORROW! ⏳";
++                            else badge = "In " + daysLeft + " days";
++
++                            content = "📅 " + dateStr + (roomStr.isEmpty() ? "" : "  •  📍 Room " + roomStr);
++                        }
++                    } catch (Exception e) {
++                        Log.e(TAG, "Error performing dynamic exam countdown calculation", e);
++                    }
++                }
++
++                views.setTextViewText(R.id.widget_title, title);
++                views.setTextViewText(R.id.widget_content, content);
++            }
++
++            // Top Header Bindings
 +            views.setTextViewText(R.id.widget_tag, tag);
 +
 +            if (badge != null && !badge.trim().isEmpty()) {
-+                views.setViewVisibility(R.id.widget_badge, android.view.View.VISIBLE);
++                views.setViewVisibility(R.id.widget_badge, View.VISIBLE);
 +                views.setTextViewText(R.id.widget_badge, badge);
 +            } else {
-+                views.setViewVisibility(R.id.widget_badge, android.view.View.GONE);
++                views.setViewVisibility(R.id.widget_badge, View.GONE);
 +            }
 +
 +            try {
@@ -886,7 +1009,7 @@ index 89db3bb..2eee95f 100644
 +                views.setTextColor(R.id.widget_title, textColor);
 +            } catch (Exception ignored) {}
 +
-+            // Set click pending intent to launch main app
++            // Set click pending intent on all containers to launch main app
 +            Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
 +            if (launchIntent != null) {
 +                launchIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -897,20 +1020,18 @@ index 89db3bb..2eee95f 100644
 +                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
 +                );
 +                views.setOnClickPendingIntent(R.id.widget_container, pendingIntent);
-+                views.setOnClickPendingIntent(R.id.widget_title, pendingIntent);
-+                views.setOnClickPendingIntent(R.id.widget_content, pendingIntent);
++                views.setOnClickPendingIntent(R.id.single_item_container, pendingIntent);
++                views.setOnClickPendingIntent(R.id.multi_items_container, pendingIntent);
++                views.setOnClickPendingIntent(R.id.weekly_container, pendingIntent);
 +            }
 +
 +            appWidgetManager.updateAppWidget(appWidgetId, views);
 +            Log.d(TAG, "Successfully updated widget " + widgetType + " id: " + appWidgetId);
 +        } catch (Exception e) {
 +            Log.e(TAG, "Failed to update widget " + widgetType + " id: " + appWidgetId, e);
-         }
-     }
- 
--    static void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
--        // This will be handled by the ReactNativeHomeWidgetModule
--        Log.d(TAG, "updateAppWidget called for widget ID: " + appWidgetId);
++        }
++    }
++
 +    private static int parseTimeMins(String timeStr) {
 +        try {
 +            String[] parts = timeStr.split(":");
@@ -1004,6 +1125,18 @@ index 0000000..d71c845
 +        return "WeeklyTimetableWidget";
 +    }
 +}
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_accent_bar.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_accent_bar.xml
+new file mode 100644
+index 0000000..36d76ef
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_accent_bar.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shape="rectangle">
++    <solid android:color="#6366F1" />
++    <corners android:radius="2dp" />
++</shape>
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_background.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_background.xml
 index 2812133..de2e7cc 100644
 --- a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_background.xml
@@ -1034,6 +1167,66 @@ index 0000000..d25146a
 +    <solid android:color="#4F46E5" />
 +    <corners android:radius="8dp" />
 +</shape>
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_day_pill.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_day_pill.xml
+new file mode 100644
+index 0000000..4f4e887
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_day_pill.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shape="rectangle">
++    <solid android:color="#1E293B" />
++    <corners android:radius="6dp" />
++    <stroke
++        android:width="1dp"
++        android:color="#475569" />
++</shape>
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_day_pill_active.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_day_pill_active.xml
+new file mode 100644
+index 0000000..3bacf6d
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_day_pill_active.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shape="rectangle">
++    <solid android:color="#4F46E5" />
++    <corners android:radius="6dp" />
++    <stroke
++        android:width="1dp"
++        android:color="#818CF8" />
++</shape>
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_item_background.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_item_background.xml
+new file mode 100644
+index 0000000..d32cff2
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_item_background.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shape="rectangle">
++    <solid android:color="#1E293B" />
++    <corners android:radius="10dp" />
++    <stroke
++        android:width="1dp"
++        android:color="#334155" />
++</shape>
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_status_pill.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_status_pill.xml
+new file mode 100644
+index 0000000..5d2757c
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_status_pill.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shape="rectangle">
++    <solid android:color="#064E3B" />
++    <corners android:radius="4dp" />
++    <stroke
++        android:width="0.5dp"
++        android:color="#10B981" />
++</shape>
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_tag_background.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_tag_background.xml
 new file mode 100644
 index 0000000..0d9c602
@@ -1046,11 +1239,26 @@ index 0000000..0d9c602
 +    <solid android:color="#1E293B" />
 +    <corners android:radius="8dp" />
 +</shape>
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_time_pill.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_time_pill.xml
+new file mode 100644
+index 0000000..398284b
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_time_pill.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shape="rectangle">
++    <solid android:color="#312E81" />
++    <corners android:radius="6dp" />
++    <stroke
++        android:width="0.5dp"
++        android:color="#4F46E5" />
++</shape>
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/layout/home_widget.xml b/node_modules/react-native-home-widget/android/src/main/res/layout/home_widget.xml
-index 5fd6f60..81722ae 100644
+index 5fd6f60..13fb064 100644
 --- a/node_modules/react-native-home-widget/android/src/main/res/layout/home_widget.xml
 +++ b/node_modules/react-native-home-widget/android/src/main/res/layout/home_widget.xml
-@@ -1,40 +1,88 @@
+@@ -1,40 +1,810 @@
  <?xml version="1.0" encoding="utf-8"?>
  <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
 +    android:id="@+id/widget_container"
@@ -1059,12 +1267,24 @@ index 5fd6f60..81722ae 100644
      android:background="@drawable/widget_background"
      android:orientation="vertical"
 -    android:padding="16dp">
-+    android:padding="14dp">
++    android:padding="12dp">
  
+-    <TextView
+-        android:id="@+id/widget_title"
 +    <!-- Top Header Row: Category Badge + Status Badge -->
 +    <RelativeLayout
-+        android:layout_width="match_parent"
-+        android:layout_height="wrap_content"
++        android:id="@+id/widget_header_row"
+         android:layout_width="match_parent"
+         android:layout_height="wrap_content"
+-        android:text="Widget Title"
+-        android:textColor="@android:color/white"
+-        android:textSize="16sp"
+-        android:textStyle="bold"
+-        android:maxLines="1"
+-        android:ellipsize="end" />
+-
+-    <TextView
+-        android:id="@+id/widget_content"
 +        android:layout_marginBottom="6dp">
 +
 +        <!-- App / Category Tag Pill -->
@@ -1080,12 +1300,12 @@ index 5fd6f60..81722ae 100644
 +            android:textSize="10sp"
 +            android:textStyle="bold"
 +            android:background="@drawable/widget_tag_background"
-+            android:paddingLeft="8dp"
-+            android:paddingRight="8dp"
-+            android:paddingStart="8dp"
-+            android:paddingEnd="8dp"
-+            android:paddingTop="3dp"
-+            android:paddingBottom="3dp" />
++            android:paddingLeft="7dp"
++            android:paddingRight="7dp"
++            android:paddingStart="7dp"
++            android:paddingEnd="7dp"
++            android:paddingTop="2dp"
++            android:paddingBottom="2dp" />
 +
 +        <!-- Status / Countdown Pill -->
 +        <TextView
@@ -1100,33 +1320,48 @@ index 5fd6f60..81722ae 100644
 +            android:textSize="10sp"
 +            android:textStyle="bold"
 +            android:background="@drawable/widget_badge_background"
-+            android:paddingLeft="8dp"
-+            android:paddingRight="8dp"
-+            android:paddingStart="8dp"
-+            android:paddingEnd="8dp"
-+            android:paddingTop="3dp"
-+            android:paddingBottom="3dp" />
++            android:paddingLeft="7dp"
++            android:paddingRight="7dp"
++            android:paddingStart="7dp"
++            android:paddingEnd="7dp"
++            android:paddingTop="2dp"
++            android:paddingBottom="2dp" />
 +    </RelativeLayout>
 +
-+    <!-- Main Title / Subject Name (Large, Crisp & Bold) -->
-     <TextView
-         android:id="@+id/widget_title"
-         android:layout_width="match_parent"
-         android:layout_height="wrap_content"
--        android:text="Widget Title"
--        android:textColor="@android:color/white"
--        android:textSize="16sp"
-+        android:text="ClassTrack"
-+        android:textColor="#FFFFFF"
-+        android:textSize="15sp"
-         android:textStyle="bold"
--        android:maxLines="1"
-+        android:maxLines="2"
-         android:ellipsize="end" />
- 
-+    <!-- Subtitle / Metadata Details (Time, Room, Teacher) -->
-     <TextView
-         android:id="@+id/widget_content"
++    <!-- SECTION 1: Standard Single-Item View (NextClass, Attendance, Exams, QuickActions, Tips, Holiday) -->
++    <LinearLayout
++        android:id="@+id/single_item_container"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:orientation="vertical"
++        android:visibility="visible">
++
++        <TextView
++            android:id="@+id/widget_title"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:text="ClassTrack"
++            android:textColor="#FFFFFF"
++            android:textSize="15sp"
++            android:textStyle="bold"
++            android:maxLines="2"
++            android:ellipsize="end" />
++
++        <TextView
++            android:id="@+id/widget_content"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:text="Open app to sync schedule"
++            android:textColor="#94A3B8"
++            android:textSize="12sp"
++            android:maxLines="2"
++            android:ellipsize="end"
++            android:layout_marginTop="4dp" />
++    </LinearLayout>
++
++    <!-- SECTION 2: Multi-Item Class List (Upcoming Classes, Today's Deck, Tomorrow's Classes) -->
++    <LinearLayout
++        android:id="@+id/multi_items_container"
          android:layout_width="match_parent"
 -        android:layout_height="0dp"
 -        android:layout_weight="1"
@@ -1134,15 +1369,718 @@ index 5fd6f60..81722ae 100644
 -        android:textColor="@android:color/white"
 -        android:textSize="14sp"
 -        android:maxLines="3"
-+        android:layout_height="wrap_content"
-+        android:text="Open app to sync schedule"
-+        android:textColor="#94A3B8"
-+        android:textSize="12sp"
-+        android:maxLines="2"
-         android:ellipsize="end"
+-        android:ellipsize="end"
 -        android:layout_marginTop="8dp" />
-+        android:layout_marginTop="4dp" />
++        android:layout_height="wrap_content"
++        android:orientation="vertical"
++        android:visibility="gone">
++
++        <!-- Multi-Item Title / Section Label -->
++        <TextView
++            android:id="@+id/multi_header_title"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:text="Upcoming Classes"
++            android:textColor="#FFFFFF"
++            android:textSize="13sp"
++            android:textStyle="bold"
++            android:layout_marginBottom="4dp" />
++
++        <!-- Class Card Item 1 -->
++        <LinearLayout
++            android:id="@+id/class_item_1"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:background="@drawable/widget_item_background"
++            android:orientation="horizontal"
++            android:padding="6dp"
++            android:layout_marginBottom="3dp">
++
++            <View
++                android:id="@+id/class_item_1_accent"
++                android:layout_width="3dp"
++                android:layout_height="match_parent"
++                android:background="@drawable/widget_accent_bar"
++                android:layout_marginRight="6dp"
++                android:layout_marginEnd="6dp" />
++
++            <LinearLayout
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:orientation="vertical">
++
++                <RelativeLayout
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content">
++
++                    <TextView
++                        android:id="@+id/class_item_1_time"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:layout_alignParentLeft="true"
++                        android:layout_alignParentStart="true"
++                        android:background="@drawable/widget_time_pill"
++                        android:paddingLeft="5dp"
++                        android:paddingRight="5dp"
++                        android:paddingTop="1dp"
++                        android:paddingBottom="1dp"
++                        android:text="09:00 - 09:45"
++                        android:textColor="#C7D2FE"
++                        android:textSize="9sp"
++                        android:textStyle="bold" />
++
++                    <TextView
++                        android:id="@+id/class_item_1_status"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:layout_alignParentRight="true"
++                        android:layout_alignParentEnd="true"
++                        android:background="@drawable/widget_status_pill"
++                        android:paddingLeft="5dp"
++                        android:paddingRight="5dp"
++                        android:paddingTop="1dp"
++                        android:paddingBottom="1dp"
++                        android:text="UPCOMING"
++                        android:textColor="#A7F3D0"
++                        android:textSize="8sp"
++                        android:textStyle="bold" />
++                </RelativeLayout>
++
++                <TextView
++                    android:id="@+id/class_item_1_title"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:text="Mathematics"
++                    android:textColor="#FFFFFF"
++                    android:textSize="12sp"
++                    android:textStyle="bold"
++                    android:maxLines="1"
++                    android:ellipsize="end"
++                    android:layout_marginTop="2dp" />
++
++                <TextView
++                    android:id="@+id/class_item_1_room"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:text="Room 101 • Prof. Alan"
++                    android:textColor="#94A3B8"
++                    android:textSize="9sp"
++                    android:maxLines="1"
++                    android:ellipsize="end" />
++            </LinearLayout>
++        </LinearLayout>
++
++        <!-- Class Card Item 2 -->
++        <LinearLayout
++            android:id="@+id/class_item_2"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:background="@drawable/widget_item_background"
++            android:orientation="horizontal"
++            android:padding="6dp"
++            android:layout_marginBottom="3dp">
++
++            <View
++                android:id="@+id/class_item_2_accent"
++                android:layout_width="3dp"
++                android:layout_height="match_parent"
++                android:background="@drawable/widget_accent_bar"
++                android:layout_marginRight="6dp"
++                android:layout_marginEnd="6dp" />
++
++            <LinearLayout
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:orientation="vertical">
++
++                <RelativeLayout
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content">
++
++                    <TextView
++                        android:id="@+id/class_item_2_time"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:layout_alignParentLeft="true"
++                        android:layout_alignParentStart="true"
++                        android:background="@drawable/widget_time_pill"
++                        android:paddingLeft="5dp"
++                        android:paddingRight="5dp"
++                        android:paddingTop="1dp"
++                        android:paddingBottom="1dp"
++                        android:text="10:00 - 10:45"
++                        android:textColor="#C7D2FE"
++                        android:textSize="9sp"
++                        android:textStyle="bold" />
++
++                    <TextView
++                        android:id="@+id/class_item_2_status"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:layout_alignParentRight="true"
++                        android:layout_alignParentEnd="true"
++                        android:background="@drawable/widget_status_pill"
++                        android:paddingLeft="5dp"
++                        android:paddingRight="5dp"
++                        android:paddingTop="1dp"
++                        android:paddingBottom="1dp"
++                        android:text="NEXT UP"
++                        android:textColor="#A7F3D0"
++                        android:textSize="8sp"
++                        android:textStyle="bold" />
++                </RelativeLayout>
++
++                <TextView
++                    android:id="@+id/class_item_2_title"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:text="Data Structures"
++                    android:textColor="#FFFFFF"
++                    android:textSize="12sp"
++                    android:textStyle="bold"
++                    android:maxLines="1"
++                    android:ellipsize="end"
++                    android:layout_marginTop="2dp" />
++
++                <TextView
++                    android:id="@+id/class_item_2_room"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:text="Lab 2 • Dr. Wayne"
++                    android:textColor="#94A3B8"
++                    android:textSize="9sp"
++                    android:maxLines="1"
++                    android:ellipsize="end" />
++            </LinearLayout>
++        </LinearLayout>
++
++        <!-- Class Card Item 3 -->
++        <LinearLayout
++            android:id="@+id/class_item_3"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:background="@drawable/widget_item_background"
++            android:orientation="horizontal"
++            android:padding="6dp"
++            android:layout_marginBottom="3dp">
++
++            <View
++                android:id="@+id/class_item_3_accent"
++                android:layout_width="3dp"
++                android:layout_height="match_parent"
++                android:background="@drawable/widget_accent_bar"
++                android:layout_marginRight="6dp"
++                android:layout_marginEnd="6dp" />
++
++            <LinearLayout
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:orientation="vertical">
++
++                <RelativeLayout
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content">
++
++                    <TextView
++                        android:id="@+id/class_item_3_time"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:layout_alignParentLeft="true"
++                        android:layout_alignParentStart="true"
++                        android:background="@drawable/widget_time_pill"
++                        android:paddingLeft="5dp"
++                        android:paddingRight="5dp"
++                        android:paddingTop="1dp"
++                        android:paddingBottom="1dp"
++                        android:text="11:00 - 11:45"
++                        android:textColor="#C7D2FE"
++                        android:textSize="9sp"
++                        android:textStyle="bold" />
++
++                    <TextView
++                        android:id="@+id/class_item_3_status"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:layout_alignParentRight="true"
++                        android:layout_alignParentEnd="true"
++                        android:background="@drawable/widget_status_pill"
++                        android:paddingLeft="5dp"
++                        android:paddingRight="5dp"
++                        android:paddingTop="1dp"
++                        android:paddingBottom="1dp"
++                        android:text="UPCOMING"
++                        android:textColor="#A7F3D0"
++                        android:textSize="8sp"
++                        android:textStyle="bold" />
++                </RelativeLayout>
++
++                <TextView
++                    android:id="@+id/class_item_3_title"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:text="Operating Systems"
++                    android:textColor="#FFFFFF"
++                    android:textSize="12sp"
++                    android:textStyle="bold"
++                    android:maxLines="1"
++                    android:ellipsize="end"
++                    android:layout_marginTop="2dp" />
++
++                <TextView
++                    android:id="@+id/class_item_3_room"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:text="Room 304 • Prof. Davis"
++                    android:textColor="#94A3B8"
++                    android:textSize="9sp"
++                    android:maxLines="1"
++                    android:ellipsize="end" />
++            </LinearLayout>
++        </LinearLayout>
++
++        <!-- Class Card Item 4 -->
++        <LinearLayout
++            android:id="@+id/class_item_4"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:background="@drawable/widget_item_background"
++            android:orientation="horizontal"
++            android:padding="6dp"
++            android:layout_marginBottom="2dp">
++
++            <View
++                android:id="@+id/class_item_4_accent"
++                android:layout_width="3dp"
++                android:layout_height="match_parent"
++                android:background="@drawable/widget_accent_bar"
++                android:layout_marginRight="6dp"
++                android:layout_marginEnd="6dp" />
++
++            <LinearLayout
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:orientation="vertical">
++
++                <RelativeLayout
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content">
  
++                    <TextView
++                        android:id="@+id/class_item_4_time"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:layout_alignParentLeft="true"
++                        android:layout_alignParentStart="true"
++                        android:background="@drawable/widget_time_pill"
++                        android:paddingLeft="5dp"
++                        android:paddingRight="5dp"
++                        android:paddingTop="1dp"
++                        android:paddingBottom="1dp"
++                        android:text="14:00 - 14:45"
++                        android:textColor="#C7D2FE"
++                        android:textSize="9sp"
++                        android:textStyle="bold" />
++
++                    <TextView
++                        android:id="@+id/class_item_4_status"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:layout_alignParentRight="true"
++                        android:layout_alignParentEnd="true"
++                        android:background="@drawable/widget_status_pill"
++                        android:paddingLeft="5dp"
++                        android:paddingRight="5dp"
++                        android:paddingTop="1dp"
++                        android:paddingBottom="1dp"
++                        android:text="UPCOMING"
++                        android:textColor="#A7F3D0"
++                        android:textSize="8sp"
++                        android:textStyle="bold" />
++                </RelativeLayout>
++
++                <TextView
++                    android:id="@+id/class_item_4_title"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:text="Software Engineering"
++                    android:textColor="#FFFFFF"
++                    android:textSize="12sp"
++                    android:textStyle="bold"
++                    android:maxLines="1"
++                    android:ellipsize="end"
++                    android:layout_marginTop="2dp" />
++
++                <TextView
++                    android:id="@+id/class_item_4_room"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:text="Room 102 • Dr. Alice"
++                    android:textColor="#94A3B8"
++                    android:textSize="9sp"
++                    android:maxLines="1"
++                    android:ellipsize="end" />
++            </LinearLayout>
++        </LinearLayout>
++
++        <!-- Footer / More Indicator -->
++        <TextView
++            android:id="@+id/class_more_text"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:text="+ 2 more in app"
++            android:textColor="#818CF8"
++            android:textSize="10sp"
++            android:textStyle="bold"
++            android:visibility="gone"
++            android:layout_marginTop="2dp" />
++
++        <!-- Empty State Message -->
++        <TextView
++            android:id="@+id/class_empty_message"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:text="All classes done for today 🎉"
++            android:textColor="#94A3B8"
++            android:textSize="12sp"
++            android:visibility="gone"
++            android:padding="8dp" />
++    </LinearLayout>
++
++    <!-- SECTION 3: Structured Day-by-Day Weekly Timetable -->
++    <LinearLayout
++        android:id="@+id/weekly_container"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:orientation="vertical"
++        android:visibility="gone">
++
++        <!-- Weekly Header -->
++        <TextView
++            android:id="@+id/weekly_header_title"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:text="Weekly Timetable Overview"
++            android:textColor="#FFFFFF"
++            android:textSize="13sp"
++            android:textStyle="bold"
++            android:layout_marginBottom="4dp" />
++
++        <!-- Day 1: Monday -->
++        <LinearLayout
++            android:id="@+id/weekly_day_1"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:background="@drawable/widget_item_background"
++            android:orientation="horizontal"
++            android:gravity="center_vertical"
++            android:padding="4dp"
++            android:layout_marginBottom="2dp">
++
++            <TextView
++                android:id="@+id/weekly_day_1_pill"
++                android:layout_width="36dp"
++                android:layout_height="wrap_content"
++                android:background="@drawable/widget_day_pill"
++                android:gravity="center"
++                android:paddingTop="2dp"
++                android:paddingBottom="2dp"
++                android:text="MON"
++                android:textColor="#FFFFFF"
++                android:textSize="9sp"
++                android:textStyle="bold" />
++
++            <TextView
++                android:id="@+id/weekly_day_1_subjects"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:layout_marginLeft="6dp"
++                android:layout_marginStart="6dp"
++                android:text="Math, Physics, Chem"
++                android:textColor="#E2E8F0"
++                android:textSize="10sp"
++                android:maxLines="1"
++                android:ellipsize="end" />
++
++            <TextView
++                android:id="@+id/weekly_day_1_count"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginLeft="4dp"
++                android:layout_marginStart="4dp"
++                android:layout_marginRight="4dp"
++                android:layout_marginEnd="4dp"
++                android:text="3 classes"
++                android:textColor="#94A3B8"
++                android:textSize="9sp" />
++        </LinearLayout>
++
++        <!-- Day 2: Tuesday -->
++        <LinearLayout
++            android:id="@+id/weekly_day_2"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:background="@drawable/widget_item_background"
++            android:orientation="horizontal"
++            android:gravity="center_vertical"
++            android:padding="4dp"
++            android:layout_marginBottom="2dp">
++
++            <TextView
++                android:id="@+id/weekly_day_2_pill"
++                android:layout_width="36dp"
++                android:layout_height="wrap_content"
++                android:background="@drawable/widget_day_pill"
++                android:gravity="center"
++                android:paddingTop="2dp"
++                android:paddingBottom="2dp"
++                android:text="TUE"
++                android:textColor="#FFFFFF"
++                android:textSize="9sp"
++                android:textStyle="bold" />
++
++            <TextView
++                android:id="@+id/weekly_day_2_subjects"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:layout_marginLeft="6dp"
++                android:layout_marginStart="6dp"
++                android:text="Data Structures, OS"
++                android:textColor="#E2E8F0"
++                android:textSize="10sp"
++                android:maxLines="1"
++                android:ellipsize="end" />
++
++            <TextView
++                android:id="@+id/weekly_day_2_count"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginLeft="4dp"
++                android:layout_marginStart="4dp"
++                android:layout_marginRight="4dp"
++                android:layout_marginEnd="4dp"
++                android:text="2 classes"
++                android:textColor="#94A3B8"
++                android:textSize="9sp" />
++        </LinearLayout>
++
++        <!-- Day 3: Wednesday -->
++        <LinearLayout
++            android:id="@+id/weekly_day_3"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:background="@drawable/widget_item_background"
++            android:orientation="horizontal"
++            android:gravity="center_vertical"
++            android:padding="4dp"
++            android:layout_marginBottom="2dp">
++
++            <TextView
++                android:id="@+id/weekly_day_3_pill"
++                android:layout_width="36dp"
++                android:layout_height="wrap_content"
++                android:background="@drawable/widget_day_pill"
++                android:gravity="center"
++                android:paddingTop="2dp"
++                android:paddingBottom="2dp"
++                android:text="WED"
++                android:textColor="#FFFFFF"
++                android:textSize="9sp"
++                android:textStyle="bold" />
++
++            <TextView
++                android:id="@+id/weekly_day_3_subjects"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:layout_marginLeft="6dp"
++                android:layout_marginStart="6dp"
++                android:text="Algorithms, Networks"
++                android:textColor="#E2E8F0"
++                android:textSize="10sp"
++                android:maxLines="1"
++                android:ellipsize="end" />
++
++            <TextView
++                android:id="@+id/weekly_day_3_count"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginLeft="4dp"
++                android:layout_marginStart="4dp"
++                android:layout_marginRight="4dp"
++                android:layout_marginEnd="4dp"
++                android:text="3 classes"
++                android:textColor="#94A3B8"
++                android:textSize="9sp" />
++        </LinearLayout>
++
++        <!-- Day 4: Thursday -->
++        <LinearLayout
++            android:id="@+id/weekly_day_4"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:background="@drawable/widget_item_background"
++            android:orientation="horizontal"
++            android:gravity="center_vertical"
++            android:padding="4dp"
++            android:layout_marginBottom="2dp">
++
++            <TextView
++                android:id="@+id/weekly_day_4_pill"
++                android:layout_width="36dp"
++                android:layout_height="wrap_content"
++                android:background="@drawable/widget_day_pill"
++                android:gravity="center"
++                android:paddingTop="2dp"
++                android:paddingBottom="2dp"
++                android:text="THU"
++                android:textColor="#FFFFFF"
++                android:textSize="9sp"
++                android:textStyle="bold" />
++
++            <TextView
++                android:id="@+id/weekly_day_4_subjects"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:layout_marginLeft="6dp"
++                android:layout_marginStart="6dp"
++                android:text="DBMS, Machine Learning"
++                android:textColor="#E2E8F0"
++                android:textSize="10sp"
++                android:maxLines="1"
++                android:ellipsize="end" />
++
++            <TextView
++                android:id="@+id/weekly_day_4_count"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginLeft="4dp"
++                android:layout_marginStart="4dp"
++                android:layout_marginRight="4dp"
++                android:layout_marginEnd="4dp"
++                android:text="4 classes"
++                android:textColor="#94A3B8"
++                android:textSize="9sp" />
++        </LinearLayout>
++
++        <!-- Day 5: Friday -->
++        <LinearLayout
++            android:id="@+id/weekly_day_5"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:background="@drawable/widget_item_background"
++            android:orientation="horizontal"
++            android:gravity="center_vertical"
++            android:padding="4dp"
++            android:layout_marginBottom="2dp">
++
++            <TextView
++                android:id="@+id/weekly_day_5_pill"
++                android:layout_width="36dp"
++                android:layout_height="wrap_content"
++                android:background="@drawable/widget_day_pill"
++                android:gravity="center"
++                android:paddingTop="2dp"
++                android:paddingBottom="2dp"
++                android:text="FRI"
++                android:textColor="#FFFFFF"
++                android:textSize="9sp"
++                android:textStyle="bold" />
++
++            <TextView
++                android:id="@+id/weekly_day_5_subjects"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:layout_marginLeft="6dp"
++                android:layout_marginStart="6dp"
++                android:text="Web Dev Lab, Seminar"
++                android:textColor="#E2E8F0"
++                android:textSize="10sp"
++                android:maxLines="1"
++                android:ellipsize="end" />
++
++            <TextView
++                android:id="@+id/weekly_day_5_count"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginLeft="4dp"
++                android:layout_marginStart="4dp"
++                android:layout_marginRight="4dp"
++                android:layout_marginEnd="4dp"
++                android:text="2 classes"
++                android:textColor="#94A3B8"
++                android:textSize="9sp" />
++        </LinearLayout>
++
++        <!-- Day 6: Saturday -->
++        <LinearLayout
++            android:id="@+id/weekly_day_6"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:background="@drawable/widget_item_background"
++            android:orientation="horizontal"
++            android:gravity="center_vertical"
++            android:padding="4dp"
++            android:layout_marginBottom="2dp">
++
++            <TextView
++                android:id="@+id/weekly_day_6_pill"
++                android:layout_width="36dp"
++                android:layout_height="wrap_content"
++                android:background="@drawable/widget_day_pill"
++                android:gravity="center"
++                android:paddingTop="2dp"
++                android:paddingBottom="2dp"
++                android:text="SAT"
++                android:textColor="#FFFFFF"
++                android:textSize="9sp"
++                android:textStyle="bold" />
++
++            <TextView
++                android:id="@+id/weekly_day_6_subjects"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:layout_marginLeft="6dp"
++                android:layout_marginStart="6dp"
++                android:text="No Classes"
++                android:textColor="#94A3B8"
++                android:textSize="10sp"
++                android:maxLines="1"
++                android:ellipsize="end" />
++
++            <TextView
++                android:id="@+id/weekly_day_6_count"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginLeft="4dp"
++                android:layout_marginStart="4dp"
++                android:layout_marginRight="4dp"
++                android:layout_marginEnd="4dp"
++                android:text="OFF"
++                android:textColor="#94A3B8"
++                android:textSize="9sp" />
++        </LinearLayout>
++
++        <!-- Weekly Empty State -->
++        <TextView
++            android:id="@+id/weekly_empty_message"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:text="No weekly schedule available"
++            android:textColor="#94A3B8"
++            android:textSize="12sp"
++            android:visibility="gone"
++            android:padding="8dp" />
++    </LinearLayout>
++
 +    <!-- Invisible ImageView kept for backwards compatibility -->
      <ImageView
          android:id="@+id/widget_image"
