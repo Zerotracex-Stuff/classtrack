@@ -467,7 +467,7 @@ index 0000000..f654816
 +    }
 +}
 diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java
-index 89db3bb..ae5b59e 100644
+index 89db3bb..bd21b10 100644
 --- a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java
 +++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java
 @@ -1,27 +1,58 @@
@@ -875,11 +875,11 @@ index 89db3bb..ae5b59e 100644
 +
 +                    // Highlight today
 +                    if (d == todayWeekday) {
-+                        views.setInt(dayPillIds[d], "setBackgroundResource", R.drawable.widget_day_pill_active);
-+                        views.setTextViewText(dayPillIds[d], dayNames[d] + " ★");
++                        views.setTextViewText(dayPillIds[d], "★ " + dayNames[d]);
++                        views.setTextColor(dayPillIds[d], Color.parseColor("#A5B4FC"));
 +                    } else {
-+                        views.setInt(dayPillIds[d], "setBackgroundResource", R.drawable.widget_day_pill);
 +                        views.setTextViewText(dayPillIds[d], dayNames[d]);
++                        views.setTextColor(dayPillIds[d], Color.parseColor("#94A3B8"));
 +                    }
 +
 +                    if (dayEntries.size() > 0) {
@@ -1255,10 +1255,10 @@ index 0000000..398284b
 +        android:color="#4F46E5" />
 +</shape>
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/layout/home_widget.xml b/node_modules/react-native-home-widget/android/src/main/res/layout/home_widget.xml
-index 5fd6f60..13fb064 100644
+index 5fd6f60..9379332 100644
 --- a/node_modules/react-native-home-widget/android/src/main/res/layout/home_widget.xml
 +++ b/node_modules/react-native-home-widget/android/src/main/res/layout/home_widget.xml
-@@ -1,40 +1,810 @@
+@@ -1,40 +1,750 @@
  <?xml version="1.0" encoding="utf-8"?>
  <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
 +    android:id="@+id/widget_container"
@@ -1331,7 +1331,15 @@ index 5fd6f60..13fb064 100644
 +    <!-- SECTION 1: Standard Single-Item View (NextClass, Attendance, Exams, QuickActions, Tips, Holiday) -->
 +    <LinearLayout
 +        android:id="@+id/single_item_container"
-+        android:layout_width="match_parent"
+         android:layout_width="match_parent"
+-        android:layout_height="0dp"
+-        android:layout_weight="1"
+-        android:text="Widget Content"
+-        android:textColor="@android:color/white"
+-        android:textSize="14sp"
+-        android:maxLines="3"
+-        android:ellipsize="end"
+-        android:layout_marginTop="8dp" />
 +        android:layout_height="wrap_content"
 +        android:orientation="vertical"
 +        android:visibility="visible">
@@ -1362,15 +1370,7 @@ index 5fd6f60..13fb064 100644
 +    <!-- SECTION 2: Multi-Item Class List (Upcoming Classes, Today's Deck, Tomorrow's Classes) -->
 +    <LinearLayout
 +        android:id="@+id/multi_items_container"
-         android:layout_width="match_parent"
--        android:layout_height="0dp"
--        android:layout_weight="1"
--        android:text="Widget Content"
--        android:textColor="@android:color/white"
--        android:textSize="14sp"
--        android:maxLines="3"
--        android:ellipsize="end"
--        android:layout_marginTop="8dp" />
++        android:layout_width="match_parent"
 +        android:layout_height="wrap_content"
 +        android:orientation="vertical"
 +        android:visibility="gone">
@@ -1392,83 +1392,68 @@ index 5fd6f60..13fb064 100644
 +            android:layout_width="match_parent"
 +            android:layout_height="wrap_content"
 +            android:background="@drawable/widget_item_background"
-+            android:orientation="horizontal"
++            android:orientation="vertical"
 +            android:padding="6dp"
 +            android:layout_marginBottom="3dp">
 +
-+            <View
-+                android:id="@+id/class_item_1_accent"
-+                android:layout_width="3dp"
-+                android:layout_height="match_parent"
-+                android:background="@drawable/widget_accent_bar"
-+                android:layout_marginRight="6dp"
-+                android:layout_marginEnd="6dp" />
-+
-+            <LinearLayout
-+                android:layout_width="0dp"
-+                android:layout_height="wrap_content"
-+                android:layout_weight="1"
-+                android:orientation="vertical">
-+
-+                <RelativeLayout
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content">
-+
-+                    <TextView
-+                        android:id="@+id/class_item_1_time"
-+                        android:layout_width="wrap_content"
-+                        android:layout_height="wrap_content"
-+                        android:layout_alignParentLeft="true"
-+                        android:layout_alignParentStart="true"
-+                        android:background="@drawable/widget_time_pill"
-+                        android:paddingLeft="5dp"
-+                        android:paddingRight="5dp"
-+                        android:paddingTop="1dp"
-+                        android:paddingBottom="1dp"
-+                        android:text="09:00 - 09:45"
-+                        android:textColor="#C7D2FE"
-+                        android:textSize="9sp"
-+                        android:textStyle="bold" />
-+
-+                    <TextView
-+                        android:id="@+id/class_item_1_status"
-+                        android:layout_width="wrap_content"
-+                        android:layout_height="wrap_content"
-+                        android:layout_alignParentRight="true"
-+                        android:layout_alignParentEnd="true"
-+                        android:background="@drawable/widget_status_pill"
-+                        android:paddingLeft="5dp"
-+                        android:paddingRight="5dp"
-+                        android:paddingTop="1dp"
-+                        android:paddingBottom="1dp"
-+                        android:text="UPCOMING"
-+                        android:textColor="#A7F3D0"
-+                        android:textSize="8sp"
-+                        android:textStyle="bold" />
-+                </RelativeLayout>
++            <RelativeLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content">
 +
 +                <TextView
-+                    android:id="@+id/class_item_1_title"
-+                    android:layout_width="match_parent"
++                    android:id="@+id/class_item_1_time"
++                    android:layout_width="wrap_content"
 +                    android:layout_height="wrap_content"
-+                    android:text="Mathematics"
-+                    android:textColor="#FFFFFF"
-+                    android:textSize="12sp"
-+                    android:textStyle="bold"
-+                    android:maxLines="1"
-+                    android:ellipsize="end"
-+                    android:layout_marginTop="2dp" />
-+
-+                <TextView
-+                    android:id="@+id/class_item_1_room"
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content"
-+                    android:text="Room 101 • Prof. Alan"
-+                    android:textColor="#94A3B8"
++                    android:layout_alignParentLeft="true"
++                    android:layout_alignParentStart="true"
++                    android:background="@drawable/widget_time_pill"
++                    android:paddingLeft="5dp"
++                    android:paddingRight="5dp"
++                    android:paddingTop="1dp"
++                    android:paddingBottom="1dp"
++                    android:text="09:00 - 09:45"
++                    android:textColor="#C7D2FE"
 +                    android:textSize="9sp"
-+                    android:maxLines="1"
-+                    android:ellipsize="end" />
-+            </LinearLayout>
++                    android:textStyle="bold" />
++
++                <TextView
++                    android:id="@+id/class_item_1_status"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:layout_alignParentRight="true"
++                    android:layout_alignParentEnd="true"
++                    android:background="@drawable/widget_status_pill"
++                    android:paddingLeft="5dp"
++                    android:paddingRight="5dp"
++                    android:paddingTop="1dp"
++                    android:paddingBottom="1dp"
++                    android:text="UPCOMING"
++                    android:textColor="#A7F3D0"
++                    android:textSize="8sp"
++                    android:textStyle="bold" />
++            </RelativeLayout>
++
++            <TextView
++                android:id="@+id/class_item_1_title"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:text="Mathematics"
++                android:textColor="#FFFFFF"
++                android:textSize="12sp"
++                android:textStyle="bold"
++                android:maxLines="1"
++                android:ellipsize="end"
++                android:layout_marginTop="2dp" />
++
++            <TextView
++                android:id="@+id/class_item_1_room"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:text="Room 101 • Prof. Alan"
++                android:textColor="#94A3B8"
++                android:textSize="9sp"
++                android:maxLines="1"
++                android:ellipsize="end" />
 +        </LinearLayout>
 +
 +        <!-- Class Card Item 2 -->
@@ -1477,83 +1462,68 @@ index 5fd6f60..13fb064 100644
 +            android:layout_width="match_parent"
 +            android:layout_height="wrap_content"
 +            android:background="@drawable/widget_item_background"
-+            android:orientation="horizontal"
++            android:orientation="vertical"
 +            android:padding="6dp"
 +            android:layout_marginBottom="3dp">
 +
-+            <View
-+                android:id="@+id/class_item_2_accent"
-+                android:layout_width="3dp"
-+                android:layout_height="match_parent"
-+                android:background="@drawable/widget_accent_bar"
-+                android:layout_marginRight="6dp"
-+                android:layout_marginEnd="6dp" />
-+
-+            <LinearLayout
-+                android:layout_width="0dp"
-+                android:layout_height="wrap_content"
-+                android:layout_weight="1"
-+                android:orientation="vertical">
-+
-+                <RelativeLayout
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content">
-+
-+                    <TextView
-+                        android:id="@+id/class_item_2_time"
-+                        android:layout_width="wrap_content"
-+                        android:layout_height="wrap_content"
-+                        android:layout_alignParentLeft="true"
-+                        android:layout_alignParentStart="true"
-+                        android:background="@drawable/widget_time_pill"
-+                        android:paddingLeft="5dp"
-+                        android:paddingRight="5dp"
-+                        android:paddingTop="1dp"
-+                        android:paddingBottom="1dp"
-+                        android:text="10:00 - 10:45"
-+                        android:textColor="#C7D2FE"
-+                        android:textSize="9sp"
-+                        android:textStyle="bold" />
-+
-+                    <TextView
-+                        android:id="@+id/class_item_2_status"
-+                        android:layout_width="wrap_content"
-+                        android:layout_height="wrap_content"
-+                        android:layout_alignParentRight="true"
-+                        android:layout_alignParentEnd="true"
-+                        android:background="@drawable/widget_status_pill"
-+                        android:paddingLeft="5dp"
-+                        android:paddingRight="5dp"
-+                        android:paddingTop="1dp"
-+                        android:paddingBottom="1dp"
-+                        android:text="NEXT UP"
-+                        android:textColor="#A7F3D0"
-+                        android:textSize="8sp"
-+                        android:textStyle="bold" />
-+                </RelativeLayout>
++            <RelativeLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content">
 +
 +                <TextView
-+                    android:id="@+id/class_item_2_title"
-+                    android:layout_width="match_parent"
++                    android:id="@+id/class_item_2_time"
++                    android:layout_width="wrap_content"
 +                    android:layout_height="wrap_content"
-+                    android:text="Data Structures"
-+                    android:textColor="#FFFFFF"
-+                    android:textSize="12sp"
-+                    android:textStyle="bold"
-+                    android:maxLines="1"
-+                    android:ellipsize="end"
-+                    android:layout_marginTop="2dp" />
-+
-+                <TextView
-+                    android:id="@+id/class_item_2_room"
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content"
-+                    android:text="Lab 2 • Dr. Wayne"
-+                    android:textColor="#94A3B8"
++                    android:layout_alignParentLeft="true"
++                    android:layout_alignParentStart="true"
++                    android:background="@drawable/widget_time_pill"
++                    android:paddingLeft="5dp"
++                    android:paddingRight="5dp"
++                    android:paddingTop="1dp"
++                    android:paddingBottom="1dp"
++                    android:text="10:00 - 10:45"
++                    android:textColor="#C7D2FE"
 +                    android:textSize="9sp"
-+                    android:maxLines="1"
-+                    android:ellipsize="end" />
-+            </LinearLayout>
++                    android:textStyle="bold" />
++
++                <TextView
++                    android:id="@+id/class_item_2_status"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:layout_alignParentRight="true"
++                    android:layout_alignParentEnd="true"
++                    android:background="@drawable/widget_status_pill"
++                    android:paddingLeft="5dp"
++                    android:paddingRight="5dp"
++                    android:paddingTop="1dp"
++                    android:paddingBottom="1dp"
++                    android:text="NEXT UP"
++                    android:textColor="#A7F3D0"
++                    android:textSize="8sp"
++                    android:textStyle="bold" />
++            </RelativeLayout>
++
++            <TextView
++                android:id="@+id/class_item_2_title"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:text="Data Structures"
++                android:textColor="#FFFFFF"
++                android:textSize="12sp"
++                android:textStyle="bold"
++                android:maxLines="1"
++                android:ellipsize="end"
++                android:layout_marginTop="2dp" />
++
++            <TextView
++                android:id="@+id/class_item_2_room"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:text="Lab 2 • Dr. Wayne"
++                android:textColor="#94A3B8"
++                android:textSize="9sp"
++                android:maxLines="1"
++                android:ellipsize="end" />
 +        </LinearLayout>
 +
 +        <!-- Class Card Item 3 -->
@@ -1562,83 +1532,68 @@ index 5fd6f60..13fb064 100644
 +            android:layout_width="match_parent"
 +            android:layout_height="wrap_content"
 +            android:background="@drawable/widget_item_background"
-+            android:orientation="horizontal"
++            android:orientation="vertical"
 +            android:padding="6dp"
 +            android:layout_marginBottom="3dp">
 +
-+            <View
-+                android:id="@+id/class_item_3_accent"
-+                android:layout_width="3dp"
-+                android:layout_height="match_parent"
-+                android:background="@drawable/widget_accent_bar"
-+                android:layout_marginRight="6dp"
-+                android:layout_marginEnd="6dp" />
-+
-+            <LinearLayout
-+                android:layout_width="0dp"
-+                android:layout_height="wrap_content"
-+                android:layout_weight="1"
-+                android:orientation="vertical">
-+
-+                <RelativeLayout
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content">
-+
-+                    <TextView
-+                        android:id="@+id/class_item_3_time"
-+                        android:layout_width="wrap_content"
-+                        android:layout_height="wrap_content"
-+                        android:layout_alignParentLeft="true"
-+                        android:layout_alignParentStart="true"
-+                        android:background="@drawable/widget_time_pill"
-+                        android:paddingLeft="5dp"
-+                        android:paddingRight="5dp"
-+                        android:paddingTop="1dp"
-+                        android:paddingBottom="1dp"
-+                        android:text="11:00 - 11:45"
-+                        android:textColor="#C7D2FE"
-+                        android:textSize="9sp"
-+                        android:textStyle="bold" />
-+
-+                    <TextView
-+                        android:id="@+id/class_item_3_status"
-+                        android:layout_width="wrap_content"
-+                        android:layout_height="wrap_content"
-+                        android:layout_alignParentRight="true"
-+                        android:layout_alignParentEnd="true"
-+                        android:background="@drawable/widget_status_pill"
-+                        android:paddingLeft="5dp"
-+                        android:paddingRight="5dp"
-+                        android:paddingTop="1dp"
-+                        android:paddingBottom="1dp"
-+                        android:text="UPCOMING"
-+                        android:textColor="#A7F3D0"
-+                        android:textSize="8sp"
-+                        android:textStyle="bold" />
-+                </RelativeLayout>
++            <RelativeLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content">
 +
 +                <TextView
-+                    android:id="@+id/class_item_3_title"
-+                    android:layout_width="match_parent"
++                    android:id="@+id/class_item_3_time"
++                    android:layout_width="wrap_content"
 +                    android:layout_height="wrap_content"
-+                    android:text="Operating Systems"
-+                    android:textColor="#FFFFFF"
-+                    android:textSize="12sp"
-+                    android:textStyle="bold"
-+                    android:maxLines="1"
-+                    android:ellipsize="end"
-+                    android:layout_marginTop="2dp" />
-+
-+                <TextView
-+                    android:id="@+id/class_item_3_room"
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content"
-+                    android:text="Room 304 • Prof. Davis"
-+                    android:textColor="#94A3B8"
++                    android:layout_alignParentLeft="true"
++                    android:layout_alignParentStart="true"
++                    android:background="@drawable/widget_time_pill"
++                    android:paddingLeft="5dp"
++                    android:paddingRight="5dp"
++                    android:paddingTop="1dp"
++                    android:paddingBottom="1dp"
++                    android:text="11:00 - 11:45"
++                    android:textColor="#C7D2FE"
 +                    android:textSize="9sp"
-+                    android:maxLines="1"
-+                    android:ellipsize="end" />
-+            </LinearLayout>
++                    android:textStyle="bold" />
++
++                <TextView
++                    android:id="@+id/class_item_3_status"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:layout_alignParentRight="true"
++                    android:layout_alignParentEnd="true"
++                    android:background="@drawable/widget_status_pill"
++                    android:paddingLeft="5dp"
++                    android:paddingRight="5dp"
++                    android:paddingTop="1dp"
++                    android:paddingBottom="1dp"
++                    android:text="UPCOMING"
++                    android:textColor="#A7F3D0"
++                    android:textSize="8sp"
++                    android:textStyle="bold" />
++            </RelativeLayout>
++
++            <TextView
++                android:id="@+id/class_item_3_title"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:text="Operating Systems"
++                android:textColor="#FFFFFF"
++                android:textSize="12sp"
++                android:textStyle="bold"
++                android:maxLines="1"
++                android:ellipsize="end"
++                android:layout_marginTop="2dp" />
++
++            <TextView
++                android:id="@+id/class_item_3_room"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:text="Room 304 • Prof. Davis"
++                android:textColor="#94A3B8"
++                android:textSize="9sp"
++                android:maxLines="1"
++                android:ellipsize="end" />
 +        </LinearLayout>
 +
 +        <!-- Class Card Item 4 -->
@@ -1647,85 +1602,70 @@ index 5fd6f60..13fb064 100644
 +            android:layout_width="match_parent"
 +            android:layout_height="wrap_content"
 +            android:background="@drawable/widget_item_background"
-+            android:orientation="horizontal"
++            android:orientation="vertical"
 +            android:padding="6dp"
 +            android:layout_marginBottom="2dp">
 +
-+            <View
-+                android:id="@+id/class_item_4_accent"
-+                android:layout_width="3dp"
-+                android:layout_height="match_parent"
-+                android:background="@drawable/widget_accent_bar"
-+                android:layout_marginRight="6dp"
-+                android:layout_marginEnd="6dp" />
-+
-+            <LinearLayout
-+                android:layout_width="0dp"
-+                android:layout_height="wrap_content"
-+                android:layout_weight="1"
-+                android:orientation="vertical">
-+
-+                <RelativeLayout
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content">
- 
-+                    <TextView
-+                        android:id="@+id/class_item_4_time"
-+                        android:layout_width="wrap_content"
-+                        android:layout_height="wrap_content"
-+                        android:layout_alignParentLeft="true"
-+                        android:layout_alignParentStart="true"
-+                        android:background="@drawable/widget_time_pill"
-+                        android:paddingLeft="5dp"
-+                        android:paddingRight="5dp"
-+                        android:paddingTop="1dp"
-+                        android:paddingBottom="1dp"
-+                        android:text="14:00 - 14:45"
-+                        android:textColor="#C7D2FE"
-+                        android:textSize="9sp"
-+                        android:textStyle="bold" />
-+
-+                    <TextView
-+                        android:id="@+id/class_item_4_status"
-+                        android:layout_width="wrap_content"
-+                        android:layout_height="wrap_content"
-+                        android:layout_alignParentRight="true"
-+                        android:layout_alignParentEnd="true"
-+                        android:background="@drawable/widget_status_pill"
-+                        android:paddingLeft="5dp"
-+                        android:paddingRight="5dp"
-+                        android:paddingTop="1dp"
-+                        android:paddingBottom="1dp"
-+                        android:text="UPCOMING"
-+                        android:textColor="#A7F3D0"
-+                        android:textSize="8sp"
-+                        android:textStyle="bold" />
-+                </RelativeLayout>
++            <RelativeLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content">
 +
 +                <TextView
-+                    android:id="@+id/class_item_4_title"
-+                    android:layout_width="match_parent"
++                    android:id="@+id/class_item_4_time"
++                    android:layout_width="wrap_content"
 +                    android:layout_height="wrap_content"
-+                    android:text="Software Engineering"
-+                    android:textColor="#FFFFFF"
-+                    android:textSize="12sp"
-+                    android:textStyle="bold"
-+                    android:maxLines="1"
-+                    android:ellipsize="end"
-+                    android:layout_marginTop="2dp" />
-+
-+                <TextView
-+                    android:id="@+id/class_item_4_room"
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content"
-+                    android:text="Room 102 • Dr. Alice"
-+                    android:textColor="#94A3B8"
++                    android:layout_alignParentLeft="true"
++                    android:layout_alignParentStart="true"
++                    android:background="@drawable/widget_time_pill"
++                    android:paddingLeft="5dp"
++                    android:paddingRight="5dp"
++                    android:paddingTop="1dp"
++                    android:paddingBottom="1dp"
++                    android:text="14:00 - 14:45"
++                    android:textColor="#C7D2FE"
 +                    android:textSize="9sp"
-+                    android:maxLines="1"
-+                    android:ellipsize="end" />
-+            </LinearLayout>
-+        </LinearLayout>
++                    android:textStyle="bold" />
 +
++                <TextView
++                    android:id="@+id/class_item_4_status"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:layout_alignParentRight="true"
++                    android:layout_alignParentEnd="true"
++                    android:background="@drawable/widget_status_pill"
++                    android:paddingLeft="5dp"
++                    android:paddingRight="5dp"
++                    android:paddingTop="1dp"
++                    android:paddingBottom="1dp"
++                    android:text="UPCOMING"
++                    android:textColor="#A7F3D0"
++                    android:textSize="8sp"
++                    android:textStyle="bold" />
++            </RelativeLayout>
++
++            <TextView
++                android:id="@+id/class_item_4_title"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:text="Software Engineering"
++                android:textColor="#FFFFFF"
++                android:textSize="12sp"
++                android:textStyle="bold"
++                android:maxLines="1"
++                android:ellipsize="end"
++                android:layout_marginTop="2dp" />
++
++            <TextView
++                android:id="@+id/class_item_4_room"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:text="Room 102 • Dr. Alice"
++                android:textColor="#94A3B8"
++                android:textSize="9sp"
++                android:maxLines="1"
++                android:ellipsize="end" />
++        </LinearLayout>
+ 
 +        <!-- Footer / More Indicator -->
 +        <TextView
 +            android:id="@+id/class_more_text"
