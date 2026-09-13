@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import HomeWidget from 'react-native-home-widget';
-import { Subject, Period, TimetableEntry, AttendanceRecord, Exam, UserSettings } from '../types';
+import { Subject, Period, TimetableEntry, AttendanceRecord, Exam, Holiday, UserSettings } from '../types';
 import { format, parseISO, isFuture, isToday } from 'date-fns';
 import { formatTime, formatTimeRange } from '../utils/timeUtils';
 
@@ -26,12 +26,14 @@ export const syncLauncherHomeWidgets = async (payload: {
   entries: TimetableEntry[];
   attendance: AttendanceRecord[];
   exams: Exam[];
+  holidays?: Holiday[];
   settings: UserSettings;
 }): Promise<boolean> => {
   try {
-    const { subjects, periods, entries, attendance, exams, settings } = payload;
+    const { subjects, periods, entries, attendance, exams, holidays = [], settings } = payload;
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const todayWeekday = ((new Date().getDay() + 6) % 7); // 0 = Mon, ..., 6 = Sun
+    const timeFmt = settings.timeFormat || '12h';
 
     // 1. Calculate Today's Next/Active Class
     const todayEntries = entries
@@ -61,8 +63,6 @@ export const syncLauncherHomeWidgets = async (payload: {
         const startMins = startH * 60 + startM;
         const endMins = endH * 60 + endM;
 
-        const timeFmt = settings.timeFormat || '12h';
-
         if (currentMins >= startMins && currentMins <= endMins) {
           nextClassName = item.subject?.name || 'Class in Progress';
           nextClassTime = formatTimeRange(item.period.startTime, item.period.endTime, timeFmt);
@@ -85,7 +85,6 @@ export const syncLauncherHomeWidgets = async (payload: {
       // If all classes passed for today
       if (nextClassName === 'No More Classes Today' && todayEntries[0]) {
         const first = todayEntries[0];
-        const timeFmt = settings.timeFormat || '12h';
         nextClassName = first.subject?.name || 'First Class Tomorrow';
         nextClassTime = `${formatTime(first.period?.startTime, timeFmt)} (${first.subject?.name})`;
         nextClassCountdown = 'Done for Today 🎉';
@@ -107,13 +106,6 @@ export const syncLauncherHomeWidgets = async (payload: {
     if (held > 0) {
       safeBunks = Math.max(0, Math.floor((attended - (target / 100) * held) / (target / 100)));
     }
-
-    const attendanceStatus =
-      overallPct >= target
-        ? safeBunks <= 1
-          ? 'Borderline Warning ⚠️'
-          : 'Safe Zone Shield 🛡️'
-        : 'Attendance Shortage 🚨';
 
     // 3. Nearest Exam Math
     const nearestExam = [...exams]
@@ -141,12 +133,60 @@ export const syncLauncherHomeWidgets = async (payload: {
       }
     }
 
+    // 4. Today's Schedule Deck Math
+    const scheduleCount = todayEntries.length;
+    let scheduleContent = 'No classes scheduled for today. Take time off! ☕';
+    if (scheduleCount > 0) {
+      const first = todayEntries[0];
+      const room = first.entry.roomOverride || first.subject?.room;
+      scheduleContent = `1st: ${first.subject?.name || 'Class'} at ${formatTime(first.period?.startTime, timeFmt)}${room ? ' (' + room + ')' : ''}`;
+    }
+
+    // 5. Attendance Analytics & Risk Math
+    let lowestSubjectName = 'All Subjects';
+    let lowestPct = 100;
+    let subjectsBelowTarget = 0;
+
+    subjects.forEach(s => {
+      const logs = attendance.filter(a => a.subjectId === s.id && a.status !== 'not_held');
+      const sHeld = logs.length;
+      const sAttended = logs.filter(a => a.status === 'present').length;
+      const pct = sHeld > 0 ? Math.round((sAttended / sHeld) * 100) : 100;
+      if (pct < target) subjectsBelowTarget++;
+      if (pct < lowestPct) {
+        lowestPct = pct;
+        lowestSubjectName = s.name;
+      }
+    });
+
+    let analyticsContent = subjectsBelowTarget > 0
+      ? `Lowest: ${lowestSubjectName} (${lowestPct}%) • Target: ${target}%`
+      : `All ${subjects.length || 0} subjects meeting ${target}% target threshold`;
+
+    // 6. Smart Tip Math
+    let tipContent = `Maintain overall attendance above ${target}% for hassle-free exam hall tickets!`;
+    if (overallPct < target) {
+      tipContent = `🚨 Attendance is ${overallPct}% (target ${target}%). Attend upcoming lectures to recover safe margin!`;
+    } else if (safeBunks > 0) {
+      tipContent = `💡 You have ~${safeBunks} safe bunks remaining across your schedule. Stay consistent!`;
+    }
+
+    // 7. Active Holiday Break Math
+    const activeHoliday = holidays.find(
+      h => todayStr >= h.startDate && todayStr <= h.endDate
+    );
+    const holidayTitle = activeHoliday ? `🌴 ${activeHoliday.name}` : 'No Active Vacation Break';
+    const holidayContent = activeHoliday
+      ? `Holiday active (${activeHoliday.startDate} to ${activeHoliday.endDate}) • Attendance alerts paused 🎉`
+      : 'Regular academic schedule in progress';
+    const holidayBadge = activeHoliday ? 'ON VACATION' : 'REGULAR';
+
     // Save items to Native Shared Storage for Launcher Widgets
     if (Platform.OS !== 'web') {
       try {
         const isSupported = await HomeWidget.isSupported();
         if (isSupported) {
-          // 1. Next/Active Class Widget (Modern Card look)
+          // 1. Next/Active Class Widget
           const classMetaParts = [];
           if (nextClassTime) classMetaParts.push(`⏰ ${nextClassTime}`);
           if (nextClassRoom) classMetaParts.push(`📍 ${nextClassRoom}`);
@@ -163,7 +203,7 @@ export const syncLauncherHomeWidgets = async (payload: {
             textColor: '#FFFFFF',
           });
 
-          // 2. Attendance Health Widget (Modern Card look)
+          // 2. Attendance Health Widget
           const attBadge = overallPct >= target ? 'HEALTHY 🛡️' : 'SHORTAGE 🚨';
           await (HomeWidget as any).updateWidget('AttendanceWidget', {
             id: 'AttendanceWidget',
@@ -176,7 +216,7 @@ export const syncLauncherHomeWidgets = async (payload: {
             textColor: '#FFFFFF',
           });
 
-          // 3. Nearest Exam Widget (Modern Card look)
+          // 3. Nearest Exam Widget
           await (HomeWidget as any).updateWidget('ExamsWidget', {
             id: 'ExamsWidget',
             tag: '📝 UPCOMING EXAM',
@@ -184,6 +224,66 @@ export const syncLauncherHomeWidgets = async (payload: {
             badgeColor: '#D97706',
             title: nearestExamTitle,
             content: `📅 ${nearestExamDate} • Tap to view all exams`,
+            backgroundColor: '#0F172A',
+            textColor: '#FFFFFF',
+          });
+
+          // 4. Today's Deck & Schedule Widget
+          await (HomeWidget as any).updateWidget('TodayScheduleWidget', {
+            id: 'TodayScheduleWidget',
+            tag: '📚 TODAY\'S DECK',
+            badge: `${scheduleCount} LECTURES`,
+            badgeColor: '#6366F1',
+            title: `Today: ${scheduleCount} Scheduled Classes`,
+            content: scheduleContent,
+            backgroundColor: '#0F172A',
+            textColor: '#FFFFFF',
+          });
+
+          // 5. Quick Actions Shortcut Widget
+          await (HomeWidget as any).updateWidget('QuickActionsWidget', {
+            id: 'QuickActionsWidget',
+            tag: '⚡ QUICK ACTIONS',
+            badge: '5 SHORTCUTS',
+            badgeColor: '#8B5CF6',
+            title: 'Quick Shortcuts & Scanner',
+            content: '📷 Scan QR  •  📅 Timetable  •  🧮 Bunk Calc  •  🌴 Vacations',
+            backgroundColor: '#0F172A',
+            textColor: '#FFFFFF',
+          });
+
+          // 6. Attendance Analytics & Risk Widget
+          await (HomeWidget as any).updateWidget('AttendanceAnalyticsWidget', {
+            id: 'AttendanceAnalyticsWidget',
+            tag: '📊 ATTENDANCE RISK',
+            badge: subjectsBelowTarget > 0 ? `${subjectsBelowTarget} AT RISK` : 'ALL CLEAR',
+            badgeColor: subjectsBelowTarget > 0 ? '#EF4444' : '#10B981',
+            title: `Analytics: ${overallPct}% Overall`,
+            content: analyticsContent,
+            backgroundColor: '#0F172A',
+            textColor: '#FFFFFF',
+          });
+
+          // 7. Smart Productivity Tip Widget
+          await (HomeWidget as any).updateWidget('SmartTipsWidget', {
+            id: 'SmartTipsWidget',
+            tag: '💡 SMART TIP',
+            badge: 'PRO TIP',
+            badgeColor: '#F59E0B',
+            title: 'ClassTrack Smart Advice',
+            content: tipContent,
+            backgroundColor: '#0F172A',
+            textColor: '#FFFFFF',
+          });
+
+          // 8. Active Holiday Break Widget
+          await (HomeWidget as any).updateWidget('HolidayWidget', {
+            id: 'HolidayWidget',
+            tag: '🌴 VACATION BREAK',
+            badge: holidayBadge,
+            badgeColor: activeHoliday ? '#10B981' : '#64748B',
+            title: holidayTitle,
+            content: holidayContent,
             backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
           });

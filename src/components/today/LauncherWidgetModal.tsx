@@ -27,10 +27,10 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
   onClose,
 }) => {
   const { colors } = useTheme();
-  const { subjects, periods, entries, attendance, exams, settings, updateSettings } = useApp();
+  const { subjects, periods, entries, attendance, exams, holidays, settings } = useApp();
 
   const [activePreviewTab, setActivePreviewTab] = useState<
-    'next_class' | 'attendance' | 'exams'
+    'next_class' | 'today_schedule' | 'attendance' | 'analytics' | 'exams' | 'quick_actions' | 'smart_tips' | 'holiday'
   >('next_class');
   const [syncing, setSyncing] = useState(false);
 
@@ -49,8 +49,6 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
     .sort((a, b) => (a.period?.startTime || '').localeCompare(b.period?.startTime || ''));
 
   const firstClass = todayEntries[0];
-
-  const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   let held = 0;
   let attended = 0;
@@ -71,6 +69,26 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
     })
     .sort((a, b) => a.date.localeCompare(b.date))[0];
 
+  const activeHoliday = holidays.find(
+    h => todayStr >= h.startDate && todayStr <= h.endDate
+  );
+
+  let lowestSubjectName = 'All Subjects';
+  let lowestPct = 100;
+  let subjectsBelowTarget = 0;
+
+  subjects.forEach(s => {
+    const logs = attendance.filter(a => a.subjectId === s.id && a.status !== 'not_held');
+    const sHeld = logs.length;
+    const sAttended = logs.filter(a => a.status === 'present').length;
+    const pct = sHeld > 0 ? Math.round((sAttended / sHeld) * 100) : 100;
+    if (pct < target) subjectsBelowTarget++;
+    if (pct < lowestPct) {
+      lowestPct = pct;
+      lowestSubjectName = s.name;
+    }
+  });
+
   const handleManualSync = async () => {
     setSyncing(true);
     const success = await syncLauncherHomeWidgets({
@@ -79,6 +97,7 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
       entries,
       attendance,
       exams,
+      holidays,
       settings,
     });
     setSyncing(false);
@@ -86,7 +105,7 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
     if (success) {
       Alert.alert(
         'Launcher Widgets Synced! 📱✨',
-        'Weekly schedule, horizontal/vertical day timetables, attendance health, and exam countdowns have been pushed to your launcher.'
+        'All 8 home launcher widgets (Next Class, Schedule Deck, Attendance Health, Risk Analytics, Exam Countdown, Quick Shortcuts, Smart Tips & Vacation Alert) have been pushed to your device launcher.'
       );
     } else {
       Alert.alert('Sync Complete', 'Home launcher data refreshed.');
@@ -104,7 +123,7 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
             <View>
               <Text style={[styles.title, { color: colors.text }]}>Device Launcher Widgets 📱</Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                Select a launcher widget preview to see how it looks on your home screen
+                Select a launcher widget preview to see how it looks on your phone screen
               </Text>
             </View>
             <TouchableOpacity
@@ -125,16 +144,16 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
             >
               <Ionicons name="refresh-circle-outline" size={18} color={colors.onPrimary} />
               <Text style={[styles.syncBtnText, { color: colors.onPrimary }]}>
-                {syncing ? 'Syncing Launcher Widgets...' : 'Sync Launcher Widgets Now 🔄'}
+                {syncing ? 'Syncing Launcher Widgets...' : 'Sync All Launcher Widgets Now 🔄'}
               </Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            {/* Widget Selection Grid - All 6 Options Visible */}
+            {/* Widget Selection Grid - All 8 Options */}
             <View style={styles.gridContainer}>
               <Text style={[styles.gridTitle, { color: colors.textSecondary }]}>
-                AVAILABLE LAUNCHER WIDGET STYLES:
+                AVAILABLE LAUNCHER WIDGET STYLES (MATCHING IN-APP HOME):
               </Text>
               <View style={styles.gridTabBar}>
                 <TouchableOpacity
@@ -151,13 +170,27 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                     size={16}
                     color={activePreviewTab === 'next_class' ? colors.primary : colors.text}
                   />
-                  <Text
-                    style={[
-                      styles.gridTabLabel,
-                      { color: activePreviewTab === 'next_class' ? colors.primary : colors.text },
-                    ]}
-                  >
+                  <Text style={[styles.gridTabLabel, { color: activePreviewTab === 'next_class' ? colors.primary : colors.text }]}>
                     Next Class
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.gridTabItem,
+                    { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle },
+                    activePreviewTab === 'today_schedule' && { backgroundColor: colors.primaryContainer, borderColor: colors.primary },
+                  ]}
+                  onPress={() => setActivePreviewTab('today_schedule')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="albums-outline"
+                    size={16}
+                    color={activePreviewTab === 'today_schedule' ? colors.primary : colors.text}
+                  />
+                  <Text style={[styles.gridTabLabel, { color: activePreviewTab === 'today_schedule' ? colors.primary : colors.text }]}>
+                    Today's Deck
                   </Text>
                 </TouchableOpacity>
 
@@ -171,17 +204,31 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                   activeOpacity={0.7}
                 >
                   <Ionicons
-                    name="pie-chart-outline"
+                    name="analytics-outline"
                     size={16}
                     color={activePreviewTab === 'attendance' ? colors.primary : colors.text}
                   />
-                  <Text
-                    style={[
-                      styles.gridTabLabel,
-                      { color: activePreviewTab === 'attendance' ? colors.primary : colors.text },
-                    ]}
-                  >
-                    Health (2x2)
+                  <Text style={[styles.gridTabLabel, { color: activePreviewTab === 'attendance' ? colors.primary : colors.text }]}>
+                    Attendance
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.gridTabItem,
+                    { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle },
+                    activePreviewTab === 'analytics' && { backgroundColor: colors.primaryContainer, borderColor: colors.primary },
+                  ]}
+                  onPress={() => setActivePreviewTab('analytics')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="bar-chart-outline"
+                    size={16}
+                    color={activePreviewTab === 'analytics' ? colors.primary : colors.text}
+                  />
+                  <Text style={[styles.gridTabLabel, { color: activePreviewTab === 'analytics' ? colors.primary : colors.text }]}>
+                    Analytics Risk
                   </Text>
                 </TouchableOpacity>
 
@@ -199,13 +246,65 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                     size={16}
                     color={activePreviewTab === 'exams' ? colors.primary : colors.text}
                   />
-                  <Text
-                    style={[
-                      styles.gridTabLabel,
-                      { color: activePreviewTab === 'exams' ? colors.primary : colors.text },
-                    ]}
-                  >
-                    Exams (4x1)
+                  <Text style={[styles.gridTabLabel, { color: activePreviewTab === 'exams' ? colors.primary : colors.text }]}>
+                    Exams
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.gridTabItem,
+                    { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle },
+                    activePreviewTab === 'quick_actions' && { backgroundColor: colors.primaryContainer, borderColor: colors.primary },
+                  ]}
+                  onPress={() => setActivePreviewTab('quick_actions')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="grid-outline"
+                    size={16}
+                    color={activePreviewTab === 'quick_actions' ? colors.primary : colors.text}
+                  />
+                  <Text style={[styles.gridTabLabel, { color: activePreviewTab === 'quick_actions' ? colors.primary : colors.text }]}>
+                    Quick Actions
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.gridTabItem,
+                    { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle },
+                    activePreviewTab === 'smart_tips' && { backgroundColor: colors.primaryContainer, borderColor: colors.primary },
+                  ]}
+                  onPress={() => setActivePreviewTab('smart_tips')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="bulb-outline"
+                    size={16}
+                    color={activePreviewTab === 'smart_tips' ? colors.primary : colors.text}
+                  />
+                  <Text style={[styles.gridTabLabel, { color: activePreviewTab === 'smart_tips' ? colors.primary : colors.text }]}>
+                    Smart Tip
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.gridTabItem,
+                    { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle },
+                    activePreviewTab === 'holiday' && { backgroundColor: colors.primaryContainer, borderColor: colors.primary },
+                  ]}
+                  onPress={() => setActivePreviewTab('holiday')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="sunny-outline"
+                    size={16}
+                    color={activePreviewTab === 'holiday' ? colors.primary : colors.text}
+                  />
+                  <Text style={[styles.gridTabLabel, { color: activePreviewTab === 'holiday' ? colors.primary : colors.text }]}>
+                    Vacation Break
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -219,12 +318,7 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
 
               {/* 1. Happening Now / Next Class */}
               {activePreviewTab === 'next_class' && (
-                <View
-                  style={[
-                    styles.launcherWidgetBox,
-                    { backgroundColor: colors.card, borderColor: colors.primary },
-                  ]}
-                >
+                <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: colors.primary }]}>
                   <View style={styles.widgetHeaderRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Ionicons name="time" size={18} color={colors.primary} />
@@ -251,14 +345,35 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                 </View>
               )}
 
-              {/* 5. Attendance Health */}
+              {/* 2. Today's Schedule Deck */}
+              {activePreviewTab === 'today_schedule' && (
+                <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: '#6366F1' }]}>
+                  <View style={styles.widgetHeaderRow}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="albums" size={18} color="#6366F1" />
+                      <Text style={[styles.widgetHeaderTitle, { color: colors.text }]}>Today's Schedule Deck</Text>
+                    </View>
+                    <View style={[styles.liveBadge, { backgroundColor: '#EEF2FF' }]}>
+                      <Text style={[styles.liveBadgeText, { color: '#4F46E5' }]}>{todayEntries.length} Classes</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.widgetMainBody}>
+                    <Text style={[styles.widgetSubject, { color: colors.text }]}>
+                      {todayEntries.length > 0 ? `Today: ${todayEntries.length} Scheduled Lectures` : 'No Classes Today 🎉'}
+                    </Text>
+                    <Text style={[styles.widgetMeta, { color: colors.textSecondary, marginTop: 4 }]}>
+                      {todayEntries.length > 0
+                        ? `1st: ${firstClass?.subject?.name} at ${firstClass?.period?.startTime}`
+                        : 'Rest & review your schedule'}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* 3. Attendance Health */}
               {activePreviewTab === 'attendance' && (
-                <View
-                  style={[
-                    styles.launcherWidgetBoxCompact,
-                    { backgroundColor: colors.card, borderColor: colors.present },
-                  ]}
-                >
+                <View style={[styles.launcherWidgetBoxCompact, { backgroundColor: colors.card, borderColor: colors.present }]}>
                   <View style={styles.compactTop}>
                     <Ionicons name="shield-checkmark" size={20} color={colors.present} />
                     <Text style={[styles.compactPct, { color: colors.present }]}>{overallPct}%</Text>
@@ -271,14 +386,37 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                 </View>
               )}
 
-              {/* 6. Exams & Deadlines */}
+              {/* 4. Analytics Risk */}
+              {activePreviewTab === 'analytics' && (
+                <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: subjectsBelowTarget > 0 ? '#EF4444' : '#10B981' }]}>
+                  <View style={styles.widgetHeaderRow}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="bar-chart" size={18} color={subjectsBelowTarget > 0 ? '#EF4444' : '#10B981'} />
+                      <Text style={[styles.widgetHeaderTitle, { color: colors.text }]}>Analytics & Risk</Text>
+                    </View>
+                    <View style={[styles.liveBadge, { backgroundColor: subjectsBelowTarget > 0 ? '#FEE2E2' : '#D1FAE5' }]}>
+                      <Text style={[styles.liveBadgeText, { color: subjectsBelowTarget > 0 ? '#DC2626' : '#059669' }]}>
+                        {subjectsBelowTarget > 0 ? `${subjectsBelowTarget} AT RISK` : 'ALL CLEAR'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.widgetMainBody}>
+                    <Text style={[styles.widgetSubject, { color: colors.text }]}>
+                      {overallPct}% Overall Attendance
+                    </Text>
+                    <Text style={[styles.widgetMeta, { color: colors.textSecondary, marginTop: 4 }]}>
+                      {subjectsBelowTarget > 0
+                        ? `Lowest: ${lowestSubjectName} (${lowestPct}%) • Target ${target}%`
+                        : `All ${subjects.length} subjects meet ${target}% target threshold`}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* 5. Exams & Deadlines */}
               {activePreviewTab === 'exams' && (
-                <View
-                  style={[
-                    styles.launcherWidgetBoxBanner,
-                    { backgroundColor: colors.card, borderColor: '#F59E0B' },
-                  ]}
-                >
+                <View style={[styles.launcherWidgetBoxBanner, { backgroundColor: colors.card, borderColor: '#F59E0B' }]}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     <Ionicons name="school" size={24} color="#F59E0B" />
                     <View style={{ flex: 1 }}>
@@ -286,12 +424,67 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                         {nearestExam?.title || 'Data Structures Final Exam'}
                       </Text>
                       <Text style={[styles.bannerSub, { color: colors.textSecondary }]}>
-                        {nearestExam?.date || 'Upcoming Exam'} • Hall B
+                        {nearestExam?.date || 'Upcoming Exam'} • Room 302
                       </Text>
                     </View>
 
                     <View style={[styles.countdownPill, { backgroundColor: '#FEF3C7' }]}>
                       <Text style={[styles.countdownText, { color: '#B45309' }]}>In 3 Days</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* 6. Quick Actions */}
+              {activePreviewTab === 'quick_actions' && (
+                <View style={[styles.launcherWidgetBoxBanner, { backgroundColor: colors.card, borderColor: '#8B5CF6' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="flash" size={24} color="#8B5CF6" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.bannerTitle, { color: colors.text }]}>
+                        Quick Shortcuts & Scanner
+                      </Text>
+                      <Text style={[styles.bannerSub, { color: colors.textSecondary }]}>
+                        📷 Scan QR  •  📅 Timetable  •  🧮 Bunks  •  🌴 Vacations
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* 7. Smart Tip */}
+              {activePreviewTab === 'smart_tips' && (
+                <View style={[styles.launcherWidgetBoxBanner, { backgroundColor: colors.card, borderColor: '#F59E0B' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="bulb" size={24} color="#F59E0B" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.bannerTitle, { color: colors.text }]}>
+                        ClassTrack Smart Advice
+                      </Text>
+                      <Text style={[styles.bannerSub, { color: colors.textSecondary }]}>
+                        {overallPct < target
+                          ? `🚨 Attendance is ${overallPct}%. Attend next lectures!`
+                          : `Keep attendance above ${target}% to avoid exam hall ticket issues!`}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* 8. Vacation Break */}
+              {activePreviewTab === 'holiday' && (
+                <View style={[styles.launcherWidgetBoxBanner, { backgroundColor: colors.card, borderColor: activeHoliday ? '#10B981' : '#64748B' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="sunny" size={24} color={activeHoliday ? '#10B981' : '#64748B'} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.bannerTitle, { color: colors.text }]}>
+                        {activeHoliday ? `🌴 ${activeHoliday.name}` : 'No Active Vacation Break'}
+                      </Text>
+                      <Text style={[styles.bannerSub, { color: colors.textSecondary }]}>
+                        {activeHoliday
+                          ? 'Vacation active • Attendance alerts paused 🎉'
+                          : 'Regular academic schedule in progress'}
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -310,7 +503,7 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                 1. Go to your phone's home screen.{'\n'}
                 2. Long-press any empty space → Tap <Text style={{ fontWeight: '700' }}>Widgets</Text>.{'\n'}
                 3. Scroll down to <Text style={{ fontWeight: '700' }}>ClassTrack</Text>.{'\n'}
-                4. Press and drag the widget onto your home screen!
+                4. Press and drag any of the 8 widgets onto your launcher home screen!
               </Text>
 
               <Text style={[styles.stepHeader, { color: colors.text, marginTop: 10 }]}>🍎 iOS Home Screen:</Text>

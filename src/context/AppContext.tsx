@@ -158,6 +158,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         entries,
         attendance,
         exams,
+        holidays,
         settings,
       });
     }

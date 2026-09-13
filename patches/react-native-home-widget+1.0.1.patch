@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-home-widget/android/src/main/AndroidManifest.xml b/node_modules/react-native-home-widget/android/src/main/AndroidManifest.xml
-index db85c43..2daecfb 100644
+index db85c43..7765465 100644
 --- a/node_modules/react-native-home-widget/android/src/main/AndroidManifest.xml
 +++ b/node_modules/react-native-home-widget/android/src/main/AndroidManifest.xml
 @@ -7,6 +7,7 @@
@@ -10,7 +10,7 @@ index db85c43..2daecfb 100644
              android:exported="true">
              <intent-filter>
                  <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-@@ -16,16 +17,26 @@
+@@ -16,16 +17,81 @@
                  android:resource="@xml/home_widget_info" />
          </receiver>
  
@@ -27,12 +27,56 @@ index db85c43..2daecfb 100644
 +                android:name="android.appwidget.provider"
 +                android:resource="@xml/attendance_widget_info" />
 +        </receiver>
++
++        <receiver android:name=".widget.ExamsWidgetProvider"
++            android:label="ClassTrack: Upcoming Exam"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
++            </intent-filter>
++            <meta-data
++                android:name="android.appwidget.provider"
++                android:resource="@xml/exams_widget_info" />
++        </receiver>
++
++        <receiver android:name=".widget.TodayScheduleWidgetProvider"
++            android:label="ClassTrack: Today's Deck"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
++            </intent-filter>
++            <meta-data
++                android:name="android.appwidget.provider"
++                android:resource="@xml/today_schedule_widget_info" />
++        </receiver>
++
++        <receiver android:name=".widget.QuickActionsWidgetProvider"
++            android:label="ClassTrack: Quick Actions"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
++            </intent-filter>
++            <meta-data
++                android:name="android.appwidget.provider"
++                android:resource="@xml/quick_actions_widget_info" />
++        </receiver>
++
++        <receiver android:name=".widget.AttendanceAnalyticsWidgetProvider"
++            android:label="ClassTrack: Attendance Risk"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
++            </intent-filter>
++            <meta-data
++                android:name="android.appwidget.provider"
++                android:resource="@xml/analytics_widget_info" />
++        </receiver>
  
 -        <activity android:name=".widget.HomeWidgetConfigureActivity"
 -            android:exported="true"
 -            android:theme="@android:style/Theme.Translucent.NoTitleBar">
-+        <receiver android:name=".widget.ExamsWidgetProvider"
-+            android:label="ClassTrack: Upcoming Exam"
++        <receiver android:name=".widget.SmartTipsWidgetProvider"
++            android:label="ClassTrack: Smart Tip"
 +            android:exported="true">
              <intent-filter>
 -                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
@@ -41,15 +85,26 @@ index db85c43..2daecfb 100644
 -        </activity>
 +            <meta-data
 +                android:name="android.appwidget.provider"
-+                android:resource="@xml/exams_widget_info" />
++                android:resource="@xml/smart_tips_widget_info" />
++        </receiver>
++
++        <receiver android:name=".widget.HolidayWidgetProvider"
++            android:label="ClassTrack: Holiday Alert"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
++            </intent-filter>
++            <meta-data
++                android:name="android.appwidget.provider"
++                android:resource="@xml/holiday_widget_info" />
 +        </receiver>
      </application>
  </manifest>
 diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java
-index 6092f88..1476efa 100644
+index 6092f88..d639ae6 100644
 --- a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java
 +++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/ReactNativeHomeWidgetModule.java
-@@ -1,34 +1,28 @@
+@@ -1,34 +1,33 @@
  package com.reactnativehomewidget;
  
 -import android.app.PendingIntent;
@@ -71,6 +126,11 @@ index 6092f88..1476efa 100644
 +import com.reactnativehomewidget.widget.HomeWidgetProvider;
 +import com.reactnativehomewidget.widget.AttendanceWidgetProvider;
 +import com.reactnativehomewidget.widget.ExamsWidgetProvider;
++import com.reactnativehomewidget.widget.TodayScheduleWidgetProvider;
++import com.reactnativehomewidget.widget.QuickActionsWidgetProvider;
++import com.reactnativehomewidget.widget.AttendanceAnalyticsWidgetProvider;
++import com.reactnativehomewidget.widget.SmartTipsWidgetProvider;
++import com.reactnativehomewidget.widget.HolidayWidgetProvider;
  
  import com.facebook.react.bridge.Arguments;
  import com.facebook.react.bridge.Promise;
@@ -89,7 +149,7 @@ index 6092f88..1476efa 100644
  import java.util.Map;
  
  public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
-@@ -37,7 +31,6 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -37,7 +36,6 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
      
      private ReactApplicationContext reactContext;
      private Map<String, WidgetConfig> registeredWidgets = new HashMap<>();
@@ -97,7 +157,7 @@ index 6092f88..1476efa 100644
  
      private static ReactNativeHomeWidgetModule instance;
      
-@@ -89,19 +82,41 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -89,19 +87,36 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
      @ReactMethod
      public void updateWidget(String widgetId, ReadableMap data, Promise promise) {
          try {
@@ -125,12 +185,7 @@ index 6092f88..1476efa 100644
 +            editor.apply();
 +
 +            // Find provider class for this widgetId
-+            Class<?> providerClass = HomeWidgetProvider.class;
-+            if ("AttendanceWidget".equals(widgetId)) {
-+                providerClass = AttendanceWidgetProvider.class;
-+            } else if ("ExamsWidget".equals(widgetId)) {
-+                providerClass = ExamsWidgetProvider.class;
-+            }
++            Class<?> providerClass = getProviderClassForWidgetId(widgetId);
 +
 +            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(reactContext);
 +            ComponentName componentName = new ComponentName(reactContext, providerClass);
@@ -147,7 +202,7 @@ index 6092f88..1476efa 100644
              promise.reject("ERROR", "Failed to update widget", e);
          }
      }
-@@ -110,14 +125,27 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -110,14 +125,22 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
      public void removeWidget(String widgetId, Promise promise) {
          try {
              registeredWidgets.remove(widgetId);
@@ -163,12 +218,7 @@ index 6092f88..1476efa 100644
              
              AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(reactContext);
 -            ComponentName componentName = new ComponentName(reactContext, HomeWidgetProvider.class);
-+            Class<?> providerClass = HomeWidgetProvider.class;
-+            if ("AttendanceWidget".equals(widgetId)) {
-+                providerClass = AttendanceWidgetProvider.class;
-+            } else if ("ExamsWidget".equals(widgetId)) {
-+                providerClass = ExamsWidgetProvider.class;
-+            }
++            Class<?> providerClass = getProviderClassForWidgetId(widgetId);
 +            ComponentName componentName = new ComponentName(reactContext, providerClass);
              int[] appWidgetIds = appWidgetManager.getAppWidgetIds(componentName);
              
@@ -178,7 +228,7 @@ index 6092f88..1476efa 100644
              }
              
              promise.resolve(null);
-@@ -147,15 +175,22 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -147,15 +170,30 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
  
      @ReactMethod
      public void setWidgetClickHandler(Promise promise) {
@@ -192,8 +242,16 @@ index 6092f88..1476efa 100644
 -            for (String widgetId : registeredWidgets.keySet()) {
 -                updateWidgetViews(widgetId);
 +            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(reactContext);
-+            String[] widgetIds = new String[]{"NextClassWidget", "AttendanceWidget", "ExamsWidget"};
-+            Class<?>[] providerClasses = new Class<?>[]{HomeWidgetProvider.class, AttendanceWidgetProvider.class, ExamsWidgetProvider.class};
++            String[] widgetIds = new String[]{
++                "NextClassWidget", "AttendanceWidget", "ExamsWidget",
++                "TodayScheduleWidget", "QuickActionsWidget", "AttendanceAnalyticsWidget",
++                "SmartTipsWidget", "HolidayWidget"
++            };
++            Class<?>[] providerClasses = new Class<?>[]{
++                HomeWidgetProvider.class, AttendanceWidgetProvider.class, ExamsWidgetProvider.class,
++                TodayScheduleWidgetProvider.class, QuickActionsWidgetProvider.class, AttendanceAnalyticsWidgetProvider.class,
++                SmartTipsWidgetProvider.class, HolidayWidgetProvider.class
++            };
 +
 +            for (int i = 0; i < widgetIds.length; i++) {
 +                ComponentName componentName = new ComponentName(reactContext, providerClasses[i]);
@@ -204,7 +262,7 @@ index 6092f88..1476efa 100644
              }
              promise.resolve(null);
          } catch (Exception e) {
-@@ -163,49 +198,6 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -163,47 +201,23 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
          }
      }
  
@@ -248,13 +306,27 @@ index 6092f88..1476efa 100644
 -            }
 -            
 -            appWidgetManager.updateAppWidget(appWidgetId, views);
--        }
--    }
--
++    private Class<?> getProviderClassForWidgetId(String widgetId) {
++        if ("AttendanceWidget".equals(widgetId)) {
++            return AttendanceWidgetProvider.class;
++        } else if ("ExamsWidget".equals(widgetId)) {
++            return ExamsWidgetProvider.class;
++        } else if ("TodayScheduleWidget".equals(widgetId)) {
++            return TodayScheduleWidgetProvider.class;
++        } else if ("QuickActionsWidget".equals(widgetId)) {
++            return QuickActionsWidgetProvider.class;
++        } else if ("AttendanceAnalyticsWidget".equals(widgetId)) {
++            return AttendanceAnalyticsWidgetProvider.class;
++        } else if ("SmartTipsWidget".equals(widgetId)) {
++            return SmartTipsWidgetProvider.class;
++        } else if ("HolidayWidget".equals(widgetId)) {
++            return HolidayWidgetProvider.class;
+         }
++        return HomeWidgetProvider.class;
+     }
+ 
      public void sendWidgetClickEvent(String widgetId, String actionUrl) {
-         WritableMap params = Arguments.createMap();
-         params.putString("widgetId", widgetId);
-@@ -216,7 +208,6 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -216,7 +230,6 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
              .emit(WIDGET_CLICK_EVENT, params);
      }
  
@@ -262,7 +334,7 @@ index 6092f88..1476efa 100644
      private static class WidgetConfig {
          String widgetId;
          String widgetName;
-@@ -232,25 +223,4 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
+@@ -232,25 +245,4 @@ public class ReactNativeHomeWidgetModule extends ReactContextBaseJavaModule {
              this.category = category;
          }
      }
@@ -288,6 +360,20 @@ index 6092f88..1476efa 100644
 -        }
 -    }
  }
+diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/AttendanceAnalyticsWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/AttendanceAnalyticsWidgetProvider.java
+new file mode 100644
+index 0000000..4098105
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/AttendanceAnalyticsWidgetProvider.java
+@@ -0,0 +1,8 @@
++package com.reactnativehomewidget.widget;
++
++public class AttendanceAnalyticsWidgetProvider extends HomeWidgetProvider {
++    @Override
++    protected String getWidgetType() {
++        return "AttendanceAnalyticsWidget";
++    }
++}
 diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/AttendanceWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/AttendanceWidgetProvider.java
 new file mode 100644
 index 0000000..7a98b1e
@@ -316,8 +402,22 @@ index 0000000..dd7e707
 +        return "ExamsWidget";
 +    }
 +}
+diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HolidayWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HolidayWidgetProvider.java
+new file mode 100644
+index 0000000..f654816
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HolidayWidgetProvider.java
+@@ -0,0 +1,8 @@
++package com.reactnativehomewidget.widget;
++
++public class HolidayWidgetProvider extends HomeWidgetProvider {
++    @Override
++    protected String getWidgetType() {
++        return "HolidayWidget";
++    }
++}
 diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java
-index 89db3bb..fdc118f 100644
+index 89db3bb..f1d5235 100644
 --- a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java
 +++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetProvider.java
 @@ -3,25 +3,32 @@ package com.reactnativehomewidget.widget;
@@ -357,7 +457,7 @@ index 89db3bb..fdc118f 100644
          }
      }
  
-@@ -35,29 +42,89 @@ public class HomeWidgetProvider extends AppWidgetProvider {
+@@ -35,29 +42,114 @@ public class HomeWidgetProvider extends AppWidgetProvider {
              
              Log.d(TAG, "Widget clicked: " + widgetId + ", actionUrl: " + actionUrl);
              
@@ -413,6 +513,31 @@ index 89db3bb..fdc118f 100644
 +                defaultTitle = "Upcoming Exams";
 +                defaultContent = "Open app to view deadlines";
 +                defaultBadge = "EXAMS";
++            } else if ("TodayScheduleWidget".equals(widgetType)) {
++                defaultTag = "📚 TODAY'S DECK";
++                defaultTitle = "Today's Schedule";
++                defaultContent = "Open app to view timetable";
++                defaultBadge = "DECK";
++            } else if ("QuickActionsWidget".equals(widgetType)) {
++                defaultTag = "⚡ QUICK ACTIONS";
++                defaultTitle = "Quick Shortcuts";
++                defaultContent = "Scan QR & Quick Actions";
++                defaultBadge = "5 SHORTCUTS";
++            } else if ("AttendanceAnalyticsWidget".equals(widgetType)) {
++                defaultTag = "📊 ATTENDANCE RISK";
++                defaultTitle = "Analytics & Risk";
++                defaultContent = "Open app to view analytics";
++                defaultBadge = "ANALYTICS";
++            } else if ("SmartTipsWidget".equals(widgetType)) {
++                defaultTag = "💡 SMART TIP";
++                defaultTitle = "Daily Productivity Tip";
++                defaultContent = "Open app to view tips";
++                defaultBadge = "PRO TIP";
++            } else if ("HolidayWidget".equals(widgetType)) {
++                defaultTag = "🌴 HOLIDAY BREAK";
++                defaultTitle = "Vacation Alert";
++                defaultContent = "Open app to view holidays";
++                defaultBadge = "VACATION";
 +            }
 +
 +            String title = prefs.getString(widgetType + "_title", defaultTitle);
@@ -461,6 +586,48 @@ index 89db3bb..fdc118f 100644
 +        }
      }
  }
+diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/QuickActionsWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/QuickActionsWidgetProvider.java
+new file mode 100644
+index 0000000..1a2ac7c
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/QuickActionsWidgetProvider.java
+@@ -0,0 +1,8 @@
++package com.reactnativehomewidget.widget;
++
++public class QuickActionsWidgetProvider extends HomeWidgetProvider {
++    @Override
++    protected String getWidgetType() {
++        return "QuickActionsWidget";
++    }
++}
+diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/SmartTipsWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/SmartTipsWidgetProvider.java
+new file mode 100644
+index 0000000..74ac2f8
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/SmartTipsWidgetProvider.java
+@@ -0,0 +1,8 @@
++package com.reactnativehomewidget.widget;
++
++public class SmartTipsWidgetProvider extends HomeWidgetProvider {
++    @Override
++    protected String getWidgetType() {
++        return "SmartTipsWidget";
++    }
++}
+diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/TodayScheduleWidgetProvider.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/TodayScheduleWidgetProvider.java
+new file mode 100644
+index 0000000..23978c2
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/TodayScheduleWidgetProvider.java
+@@ -0,0 +1,8 @@
++package com.reactnativehomewidget.widget;
++
++public class TodayScheduleWidgetProvider extends HomeWidgetProvider {
++    @Override
++    protected String getWidgetType() {
++        return "TodayScheduleWidget";
++    }
++}
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_background.xml b/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_background.xml
 index 2812133..de2e7cc 100644
 --- a/node_modules/react-native-home-widget/android/src/main/res/drawable/widget_background.xml
@@ -613,10 +780,10 @@ index 5fd6f60..81722ae 100644
  
  </LinearLayout>
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml b/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml
-index c5c5d7a..79c2c05 100644
+index c5c5d7a..fad3b79 100644
 --- a/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml
 +++ b/node_modules/react-native-home-widget/android/src/main/res/values/strings.xml
-@@ -1,5 +1,7 @@
+@@ -1,5 +1,12 @@
  <?xml version="1.0" encoding="utf-8"?>
  <resources>
 -    <string name="app_name">React Native Home Widget</string>
@@ -625,7 +792,30 @@ index c5c5d7a..79c2c05 100644
 +    <string name="app_widget_description">Next / Active Class Widget</string>
 +    <string name="attendance_widget_description">Attendance Health Widget</string>
 +    <string name="exams_widget_description">Upcoming Exam Countdown Widget</string>
++    <string name="today_schedule_widget_description">Today\'s Deck &amp; Schedule Widget</string>
++    <string name="quick_actions_widget_description">Quick Action Shortcuts Widget</string>
++    <string name="analytics_widget_description">Attendance Risk &amp; Analytics Widget</string>
++    <string name="smart_tips_widget_description">Daily Smart Productivity Tip Widget</string>
++    <string name="holiday_widget_description">Vacation &amp; Holiday Alert Widget</string>
  </resources>
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/analytics_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/analytics_widget_info.xml
+new file mode 100644
+index 0000000..2600771
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/xml/analytics_widget_info.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
++    android:description="@string/analytics_widget_description"
++    android:initialKeyguardLayout="@layout/home_widget"
++    android:initialLayout="@layout/home_widget"
++    android:minWidth="250dp"
++    android:minHeight="110dp"
++    android:resizeMode="horizontal|vertical"
++    android:targetCellWidth="4"
++    android:targetCellHeight="2"
++    android:updatePeriodMillis="1800000"
++    android:widgetCategory="home_screen" />
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/attendance_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/attendance_widget_info.xml
 new file mode 100644
 index 0000000..1a6a3d1
@@ -662,6 +852,24 @@ index 0000000..9243205
 +    android:targetCellHeight="1"
 +    android:updatePeriodMillis="1800000"
 +    android:widgetCategory="home_screen" />
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/holiday_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/holiday_widget_info.xml
+new file mode 100644
+index 0000000..4cd673c
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/xml/holiday_widget_info.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
++    android:description="@string/holiday_widget_description"
++    android:initialKeyguardLayout="@layout/home_widget"
++    android:initialLayout="@layout/home_widget"
++    android:minWidth="250dp"
++    android:minHeight="70dp"
++    android:resizeMode="horizontal|vertical"
++    android:targetCellWidth="4"
++    android:targetCellHeight="1"
++    android:updatePeriodMillis="1800000"
++    android:widgetCategory="home_screen" />
 diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/home_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/home_widget_info.xml
 index f359308..2d3a19b 100644
 --- a/node_modules/react-native-home-widget/android/src/main/res/xml/home_widget_info.xml
@@ -677,3 +885,57 @@ index f359308..2d3a19b 100644
 -    android:updatePeriodMillis="0"
 +    android:updatePeriodMillis="1800000"
      android:widgetCategory="home_screen" />
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/quick_actions_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/quick_actions_widget_info.xml
+new file mode 100644
+index 0000000..3d343b0
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/xml/quick_actions_widget_info.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
++    android:description="@string/quick_actions_widget_description"
++    android:initialKeyguardLayout="@layout/home_widget"
++    android:initialLayout="@layout/home_widget"
++    android:minWidth="250dp"
++    android:minHeight="70dp"
++    android:resizeMode="horizontal|vertical"
++    android:targetCellWidth="4"
++    android:targetCellHeight="1"
++    android:updatePeriodMillis="1800000"
++    android:widgetCategory="home_screen" />
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/smart_tips_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/smart_tips_widget_info.xml
+new file mode 100644
+index 0000000..6c016c8
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/xml/smart_tips_widget_info.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
++    android:description="@string/smart_tips_widget_description"
++    android:initialKeyguardLayout="@layout/home_widget"
++    android:initialLayout="@layout/home_widget"
++    android:minWidth="250dp"
++    android:minHeight="70dp"
++    android:resizeMode="horizontal|vertical"
++    android:targetCellWidth="4"
++    android:targetCellHeight="1"
++    android:updatePeriodMillis="1800000"
++    android:widgetCategory="home_screen" />
+diff --git a/node_modules/react-native-home-widget/android/src/main/res/xml/today_schedule_widget_info.xml b/node_modules/react-native-home-widget/android/src/main/res/xml/today_schedule_widget_info.xml
+new file mode 100644
+index 0000000..78c7454
+--- /dev/null
++++ b/node_modules/react-native-home-widget/android/src/main/res/xml/today_schedule_widget_info.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
++    android:description="@string/today_schedule_widget_description"
++    android:initialKeyguardLayout="@layout/home_widget"
++    android:initialLayout="@layout/home_widget"
++    android:minWidth="250dp"
++    android:minHeight="110dp"
++    android:resizeMode="horizontal|vertical"
++    android:targetCellWidth="4"
++    android:targetCellHeight="2"
++    android:updatePeriodMillis="1800000"
++    android:widgetCategory="home_screen" />
