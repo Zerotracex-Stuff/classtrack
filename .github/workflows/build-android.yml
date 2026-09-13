@@ -5,8 +5,10 @@ on:
     branches: [main, master]
     tags:
       - "v*"
+
   pull_request:
     branches: [main, master]
+
   workflow_dispatch:
     inputs:
       build_type:
@@ -33,16 +35,16 @@ jobs:
       - name: ☕ Setup Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: "temurin"
+          distribution: temurin
           java-version: "17"
 
       - name: 🟢 Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: "npm"
+          node-version: "20"
+          cache: npm
 
-      - name: 📦 Install Dependencies & Apply Patches
+      - name: 📦 Install Dependencies
         run: npm ci
 
       - name: ⚙️ Generate Native Android Project
@@ -57,68 +59,110 @@ jobs:
         working-directory: android
         run: |
           BUILD_TYPE="${{ github.event.inputs.build_type || 'release' }}"
+
           echo "Selected build type: $BUILD_TYPE"
+
           if [ "$BUILD_TYPE" = "debug" ]; then
             ./gradlew assembleDebug --no-daemon
           else
             ./gradlew assembleRelease --no-daemon
           fi
 
-      - name: ✍️ Sign Unsigned Release APK (if unsigned)
+      - name: ✍️ Sign Unsigned Release APK
         working-directory: android
         run: |
           UNSIGNED_APK=$(find app/build/outputs/apk -name "*unsigned*.apk" | head -n 1)
+
           if [ -n "$UNSIGNED_APK" ]; then
             echo "Found unsigned APK: $UNSIGNED_APK"
-            echo "Signing with debug keystore for easy testing & installation..."
-            BUILD_TOOLS_DIR=$(find $ANDROID_HOME/build-tools -mindepth 1 -maxdepth 1 | sort -V | tail -n 1)
+
+            BUILD_TOOLS_DIR=$(find "$ANDROID_HOME/build-tools" \
+              -mindepth 1 \
+              -maxdepth 1 \
+              -type d | sort -V | tail -n 1)
+
             KEYSTORE="app/debug.keystore"
+
             if [ ! -f "$KEYSTORE" ]; then
-              keytool -genkey -v -keystore "$KEYSTORE" -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AndroidDebug,O=Android,C=US"
+              keytool -genkey -v \
+                -keystore "$KEYSTORE" \
+                -alias androiddebugkey \
+                -storepass android \
+                -keypass android \
+                -keyalg RSA \
+                -keysize 2048 \
+                -validity 10000 \
+                -dname "CN=AndroidDebug,O=Android,C=US"
             fi
+
             SIGNED_APK="${UNSIGNED_APK%-unsigned.apk}-signed.apk"
-            $BUILD_TOOLS_DIR/apksigner sign --ks "$KEYSTORE" --ks-pass pass:android --key-pass pass:android --out "$SIGNED_APK" "$UNSIGNED_APK"
-            echo "Successfully created installable APK: $SIGNED_APK"
+
+            "$BUILD_TOOLS_DIR/apksigner" sign \
+              --ks "$KEYSTORE" \
+              --ks-pass pass:android \
+              --key-pass pass:android \
+              --out "$SIGNED_APK" \
+              "$UNSIGNED_APK"
+
+            echo "Successfully created installable APK:"
+            echo "$SIGNED_APK"
           fi
 
-      - name: 📦 Prepare APK for Release
+      - name: 📦 Prepare APK
         run: |
-          APK_FILE=$(find android/app/build/outputs/apk -type f -name "*-signed.apk" | head -n 1)
+          APK_FILE=$(find android/app/build/outputs/apk \
+            -type f \
+            -name "*-signed.apk" | head -n 1)
+
           if [ -z "$APK_FILE" ]; then
-            APK_FILE=$(find android/app/build/outputs/apk -type f -name "app-release.apk" | head -n 1)
+            APK_FILE=$(find android/app/build/outputs/apk \
+              -type f \
+              -name "app-release.apk" | head -n 1)
           fi
+
           if [ -z "$APK_FILE" ]; then
-            APK_FILE=$(find android/app/build/outputs/apk -type f -name "app-debug.apk" | head -n 1)
+            APK_FILE=$(find android/app/build/outputs/apk \
+              -type f \
+              -name "app-debug.apk" | head -n 1)
           fi
+
           if [ -z "$APK_FILE" ]; then
-            APK_FILE=$(find android/app/build/outputs/apk -type f -name "*.apk" | head -n 1)
+            APK_FILE=$(find android/app/build/outputs/apk \
+              -type f \
+              -name "*.apk" | head -n 1)
           fi
-          echo "Selected APK: $APK_FILE"
+
           if [ -z "$APK_FILE" ]; then
-            echo "::error::No APK file found in android/app/build/outputs/apk!"
+            echo "::error::No APK file found!"
             exit 1
           fi
+
+          echo "Selected APK: $APK_FILE"
+
           cp "$APK_FILE" ./ClassTrack.apk
+
           ls -lh ./ClassTrack.apk
 
-      - name: 🚀 Publish to GitHub Releases
+      - name: 🚀 Publish GitHub Release
         if: github.event_name != 'pull_request'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "v1.1.0-b${{ github.run_number }}"
-          name: "ClassTrack v1.1.0 (Build #${{ github.run_number }})"
-          body: |
-            ## 📱 ClassTrack Android Build
-            - **Commit**: `${{ github.sha }}`
-            - **Branch**: `${{ github.ref_name }}`
-            - **Type**: `${{ github.event.inputs.build_type || 'release' }}`
-
-            ### 📥 Installation Instructions
-            1. Download `ClassTrack.apk` below directly to your Android device.
-            2. Tap the file in your notification bar or downloads folder to install.
-          draft: false
-          prerelease: false
-          files: |
-            ./ClassTrack.apk
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v1.1.0-b${{ github.run_number }}"
+          TITLE="ClassTrack v1.1.0 (Build #${{ github.run_number }})"
+
+          echo "Creating release:"
+          echo "$TAG"
+
+          gh release create "$TAG" \
+            ./ClassTrack.apk \
+            --title "$TITLE" \
+            --notes "## 📱 ClassTrack Android Build
+
+          - **Commit:** \`${{ github.sha }}\`
+          - **Branch:** \`${{ github.ref_name }}\`
+          - **Type:** \`${{ github.event.inputs.build_type || 'release' }}\`
+
+          ### 📥 Installation
+
+          Download \`ClassTrack.apk\` and install it on your Android device."
