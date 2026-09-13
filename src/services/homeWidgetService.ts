@@ -181,10 +181,25 @@ export const syncLauncherHomeWidgets = async (payload: {
       : 'Regular academic schedule in progress';
     const holidayBadge = activeHoliday ? 'ON VACATION' : 'REGULAR';
 
-    // Serialize full schedule and exams JSON for native real-time background calculations
+    // Serialize full schedule, exams, and attendance JSON for native real-time background calculations
     const schedulePayload = entries.map(e => {
       const p = periods.find(per => per.id === e.periodId);
       const s = subjects.find(sub => sub.id === e.subjectId);
+
+      // Determine today's attendance mark for this entry if applicable
+      let markStatus = 'unmarked';
+      if (e.weekday === todayWeekday) {
+        const record = attendance.find(a =>
+          a.date === todayStr &&
+          (a.periodId ? a.periodId === e.periodId : a.subjectId === e.subjectId)
+        );
+        if (record) {
+          if (record.status === 'present') markStatus = 'present';
+          else if (record.status === 'absent') markStatus = 'absent';
+          else if (record.status === 'not_held') markStatus = 'cancelled';
+        }
+      }
+
       return {
         weekday: e.weekday,
         periodId: e.periodId,
@@ -193,6 +208,7 @@ export const syncLauncherHomeWidgets = async (payload: {
         subjectName: s?.name || 'Class',
         room: e.roomOverride || s?.room || '',
         teacher: e.teacher || e.teacherOverride || s?.teacher || '',
+        attendanceStatus: markStatus, // 'present' | 'absent' | 'cancelled' | 'unmarked'
       };
     });
 
@@ -205,6 +221,7 @@ export const syncLauncherHomeWidgets = async (payload: {
 
     const scheduleJsonStr = JSON.stringify(schedulePayload);
     const examsJsonStr = JSON.stringify(examsPayload);
+    const attendanceJsonStr = JSON.stringify(attendance);
 
     // Save items to Native Shared Storage for Launcher Widgets
     if (Platform.OS !== 'web') {
@@ -226,6 +243,7 @@ export const syncLauncherHomeWidgets = async (payload: {
             content: classMetaParts.join('  •  ') || 'Tap to view timetable',
             schedule_json: scheduleJsonStr,
             exams_json: examsJsonStr,
+            attendance_json: attendanceJsonStr,
             backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
           });
@@ -239,6 +257,7 @@ export const syncLauncherHomeWidgets = async (payload: {
             title: 'Upcoming Classes Today',
             content: 'Tap to view upcoming classes',
             schedule_json: scheduleJsonStr,
+            attendance_json: attendanceJsonStr,
             backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
           });
@@ -252,6 +271,7 @@ export const syncLauncherHomeWidgets = async (payload: {
             title: 'Tomorrow\'s Classes',
             content: 'Tap to view tomorrow\'s schedule',
             schedule_json: scheduleJsonStr,
+            attendance_json: attendanceJsonStr,
             backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
           });
@@ -265,6 +285,7 @@ export const syncLauncherHomeWidgets = async (payload: {
             title: 'Weekly Timetable Overview',
             content: 'Tap to view full weekly grid',
             schedule_json: scheduleJsonStr,
+            attendance_json: attendanceJsonStr,
             backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
           });
@@ -304,6 +325,7 @@ export const syncLauncherHomeWidgets = async (payload: {
             title: `Today: ${scheduleCount} Scheduled Classes`,
             content: scheduleContent,
             schedule_json: scheduleJsonStr,
+            attendance_json: attendanceJsonStr,
             backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
           });

@@ -108,6 +108,28 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
     }
   });
 
+  const getAttendanceInfo = (periodId?: string, subjectId?: string) => {
+    const record = attendance.find(a =>
+      a.date === todayStr &&
+      (a.periodId ? a.periodId === periodId : a.subjectId === subjectId)
+    );
+    if (!record) return { status: 'unmarked', label: 'UNMARKED', bg: '#F1F5F9', color: '#64748B' };
+    if (record.status === 'present') return { status: 'present', label: '✓ PRESENT', bg: '#DCFCE7', color: '#16A34A' };
+    if (record.status === 'absent') return { status: 'absent', label: '✗ ABSENT', bg: '#FEE2E2', color: '#DC2626' };
+    if (record.status === 'not_held') return { status: 'cancelled', label: 'CANCELLED', bg: '#FEF3C7', color: '#D97706' };
+    return { status: 'unmarked', label: 'UNMARKED', bg: '#F1F5F9', color: '#64748B' };
+  };
+
+  const sortedPeriods = [...periods].sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+  const weekDays = [
+    { day: 0, label: 'MON' },
+    { day: 1, label: 'TUE' },
+    { day: 2, label: 'WED' },
+    { day: 3, label: 'THU' },
+    { day: 4, label: 'FRI' },
+    { day: 5, label: 'SAT' },
+  ];
+
   const handleManualSync = async () => {
     setSyncing(true);
     const success = await syncLauncherHomeWidgets({
@@ -435,60 +457,74 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                   </View>
 
                   {upcomingTodayEntries.length > 0 ? (
-                    <View style={styles.itemsListContainer}>
-                      {upcomingTodayEntries.slice(0, 4).map((item, idx) => {
-                        const [startH, startM] = (item.period?.startTime || '00:00').split(':').map(Number);
-                        const [endH, endM] = (item.period?.endTime || '00:00').split(':').map(Number);
-                        const sMins = startH * 60 + startM;
-                        const eMins = endH * 60 + endM;
-                        let statusText = 'UPCOMING';
-                        let statusBg = '#EEF2FF';
-                        let statusColor = '#4F46E5';
+                    <View>
+                      <ScrollView
+                        style={{ maxHeight: 280 }}
+                        contentContainerStyle={styles.itemsListContainer}
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {upcomingTodayEntries.map((item, idx) => {
+                          const [startH, startM] = (item.period?.startTime || '00:00').split(':').map(Number);
+                          const [endH, endM] = (item.period?.endTime || '00:00').split(':').map(Number);
+                          const sMins = startH * 60 + startM;
+                          const eMins = endH * 60 + endM;
+                          let statusText = 'UPCOMING';
+                          let statusBg = '#EEF2FF';
+                          let statusColor = '#4F46E5';
 
-                        if (currentMins >= sMins && currentMins <= eMins) {
-                          statusText = `IN SESSION (${eMins - currentMins}m left)`;
-                          statusBg = '#DCFCE7';
-                          statusColor = '#16A34A';
-                        } else if (currentMins < sMins) {
-                          const minsUntil = sMins - currentMins;
-                          if (minsUntil <= 60) {
-                            statusText = `STARTS IN ${minsUntil}m`;
-                            statusBg = '#FEF3C7';
-                            statusColor = '#D97706';
+                          if (currentMins >= sMins && currentMins <= eMins) {
+                            statusText = `IN SESSION (${eMins - currentMins}m left)`;
+                            statusBg = '#DCFCE7';
+                            statusColor = '#16A34A';
+                          } else if (currentMins < sMins) {
+                            const minsUntil = sMins - currentMins;
+                            if (minsUntil <= 60) {
+                              statusText = `STARTS IN ${minsUntil}m`;
+                              statusBg = '#FEF3C7';
+                              statusColor = '#D97706';
+                            }
                           }
-                        }
 
-                        return (
-                          <View
-                            key={item.entry.id || idx}
-                            style={[styles.classItemCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
-                          >
-                            <View style={[styles.cardAccentBar, { backgroundColor: '#6366F1' }]} />
-                            <View style={{ flex: 1 }}>
-                              <View style={styles.cardHeaderRow}>
-                                <View style={[styles.timeBadge, { backgroundColor: '#312E81' }]}>
-                                  <Text style={styles.timeBadgeText}>
-                                    ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
-                                  </Text>
+                          const att = getAttendanceInfo(item.entry.periodId, item.entry.subjectId);
+
+                          return (
+                            <View
+                              key={item.entry.id || idx}
+                              style={[styles.classItemCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
+                            >
+                              <View style={[styles.cardAccentBar, { backgroundColor: '#6366F1' }]} />
+                              <View style={{ flex: 1 }}>
+                                <View style={styles.cardHeaderRow}>
+                                  <View style={[styles.timeBadge, { backgroundColor: '#312E81' }]}>
+                                    <Text style={styles.timeBadgeText}>
+                                      ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
+                                    </Text>
+                                  </View>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <View style={[styles.attendanceBadge, { backgroundColor: att.bg }]}>
+                                      <Text style={[styles.attendanceBadgeText, { color: att.color }]}>{att.label}</Text>
+                                    </View>
+                                    <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+                                      <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusText}</Text>
+                                    </View>
+                                  </View>
                                 </View>
-                                <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
-                                  <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusText}</Text>
-                                </View>
+                                <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
+                                  {item.subject?.name || 'Class'}
+                                </Text>
+                                <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
+                                  {item.entry.roomOverride || item.subject?.room ? `📍 ${item.entry.roomOverride || item.subject?.room}` : '📍 Room TBA'}
+                                  {item.entry.teacher || item.subject?.teacher ? `  •  👤 ${item.entry.teacher || item.subject?.teacher}` : ''}
+                                </Text>
                               </View>
-                              <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
-                                {item.subject?.name || 'Class'}
-                              </Text>
-                              <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
-                                {item.entry.roomOverride || item.subject?.room ? `📍 ${item.entry.roomOverride || item.subject?.room}` : '📍 Room TBA'}
-                                {item.entry.teacher || item.subject?.teacher ? `  •  👤 ${item.entry.teacher || item.subject?.teacher}` : ''}
-                              </Text>
                             </View>
-                          </View>
-                        );
-                      })}
-                      {upcomingTodayEntries.length > 4 && (
-                        <Text style={[styles.moreText, { color: colors.primary }]}>
-                          + {upcomingTodayEntries.length - 4} more upcoming classes in app
+                          );
+                        })}
+                      </ScrollView>
+                      {upcomingTodayEntries.length > 3 && (
+                        <Text style={[styles.scrollHintText, { color: colors.textTertiary }]}>
+                          ⇅ Scroll to view all {upcomingTodayEntries.length} upcoming classes
                         </Text>
                       )}
                     </View>
@@ -518,37 +554,44 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                   </View>
 
                   {tomorrowEntries.length > 0 ? (
-                    <View style={styles.itemsListContainer}>
-                      {tomorrowEntries.slice(0, 4).map((item, idx) => (
-                        <View
-                          key={item.entry.id || idx}
-                          style={[styles.classItemCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
-                        >
-                          <View style={[styles.cardAccentBar, { backgroundColor: '#8B5CF6' }]} />
-                          <View style={{ flex: 1 }}>
-                            <View style={styles.cardHeaderRow}>
-                              <View style={[styles.timeBadge, { backgroundColor: '#4C1D95' }]}>
-                                <Text style={styles.timeBadgeText}>
-                                  ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
-                                </Text>
+                    <View>
+                      <ScrollView
+                        style={{ maxHeight: 280 }}
+                        contentContainerStyle={styles.itemsListContainer}
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {tomorrowEntries.map((item, idx) => (
+                          <View
+                            key={item.entry.id || idx}
+                            style={[styles.classItemCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
+                          >
+                            <View style={[styles.cardAccentBar, { backgroundColor: '#8B5CF6' }]} />
+                            <View style={{ flex: 1 }}>
+                              <View style={styles.cardHeaderRow}>
+                                <View style={[styles.timeBadge, { backgroundColor: '#4C1D95' }]}>
+                                  <Text style={styles.timeBadgeText}>
+                                    ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
+                                  </Text>
+                                </View>
+                                <View style={[styles.statusBadge, { backgroundColor: '#F3E8FF' }]}>
+                                  <Text style={[styles.statusBadgeText, { color: '#7C3AED' }]}>LECTURE {idx + 1}</Text>
+                                </View>
                               </View>
-                              <View style={[styles.statusBadge, { backgroundColor: '#F3E8FF' }]}>
-                                <Text style={[styles.statusBadgeText, { color: '#7C3AED' }]}>LECTURE {idx + 1}</Text>
-                              </View>
+                              <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
+                                {item.subject?.name || 'Class'}
+                              </Text>
+                              <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
+                                {item.entry.roomOverride || item.subject?.room ? `📍 ${item.entry.roomOverride || item.subject?.room}` : '📍 Room TBA'}
+                                {item.entry.teacher || item.subject?.teacher ? `  •  👤 ${item.entry.teacher || item.subject?.teacher}` : ''}
+                              </Text>
                             </View>
-                            <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
-                              {item.subject?.name || 'Class'}
-                            </Text>
-                            <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
-                              {item.entry.roomOverride || item.subject?.room ? `📍 ${item.entry.roomOverride || item.subject?.room}` : '📍 Room TBA'}
-                              {item.entry.teacher || item.subject?.teacher ? `  •  👤 ${item.entry.teacher || item.subject?.teacher}` : ''}
-                            </Text>
                           </View>
-                        </View>
-                      ))}
-                      {tomorrowEntries.length > 4 && (
-                        <Text style={[styles.moreText, { color: '#8B5CF6' }]}>
-                          + {tomorrowEntries.length - 4} more lectures tomorrow in app
+                        ))}
+                      </ScrollView>
+                      {tomorrowEntries.length > 3 && (
+                        <Text style={[styles.scrollHintText, { color: colors.textTertiary }]}>
+                          ⇅ Scroll to view all {tomorrowEntries.length} tomorrow lectures
                         </Text>
                       )}
                     </View>
@@ -564,91 +607,112 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                 </View>
               )}
 
-              {/* 4. Weekly Timetable Overview (Structured Day-by-Day View) */}
+              {/* 4. Weekly Timetable Overview (Table / Grid View) */}
               {activePreviewTab === 'weekly_timetable' && (
-                <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: '#EC4899' }]}>
+                <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: '#EC4899', paddingHorizontal: 10 }]}>
                   <View style={styles.widgetHeaderRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="calendar" size={18} color="#EC4899" />
-                      <Text style={[styles.widgetHeaderTitle, { color: colors.text }]}>Weekly Timetable Grid</Text>
+                      <Ionicons name="grid" size={18} color="#EC4899" />
+                      <Text style={[styles.widgetHeaderTitle, { color: colors.text }]}>Weekly Timetable Table</Text>
                     </View>
                     <View style={[styles.liveBadge, { backgroundColor: '#FCE7F3' }]}>
-                      <Text style={[styles.liveBadgeText, { color: '#DB2777' }]}>{entries.length} Total Sessions</Text>
+                      <Text style={[styles.liveBadgeText, { color: '#DB2777' }]}>{entries.length} Sessions</Text>
                     </View>
                   </View>
 
-                  <View style={styles.weeklyGridContainer}>
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dayName, d) => {
-                      const dayEntries = entries
-                        .filter(e => e.weekday === d)
-                        .map(e => ({
-                          entry: e,
-                          period: periods.find(p => p.id === e.periodId),
-                          subject: subjects.find(s => s.id === e.subjectId),
-                        }))
-                        .filter(i => i.subject)
-                        .sort((a, b) => (a.period?.startTime || '').localeCompare(b.period?.startTime || ''));
-
-                      const isCurrentDay = d === todayWeekday;
-
-                      return (
-                        <View
-                          key={dayName}
-                          style={[
-                            styles.weeklyDayRow,
-                            { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle },
-                            isCurrentDay && { borderColor: '#EC4899', backgroundColor: colors.surfaceVariant },
-                          ]}
-                        >
-                          <View
-                            style={[
-                              styles.weeklyDayPill,
-                              { backgroundColor: isCurrentDay ? '#EC4899' : colors.card },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.weeklyDayPillText,
-                                { color: isCurrentDay ? '#FFFFFF' : colors.textSecondary },
-                              ]}
-                            >
-                              {dayName.toUpperCase()}{isCurrentDay ? ' ★' : ''}
-                            </Text>
-                          </View>
-
-                          <View style={{ flex: 1, marginHorizontal: 8 }}>
-                            <Text
-                              style={[
-                                styles.weeklyDaySubjectsText,
-                                { color: isCurrentDay ? colors.text : colors.textSecondary, fontWeight: isCurrentDay ? '700' : '500' },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {dayEntries.length > 0
-                                ? dayEntries.map(e => e.subject?.name).join('  •  ')
-                                : 'No classes scheduled'}
-                            </Text>
-                          </View>
-
-                          <View
-                            style={[
-                              styles.weeklyCountBadge,
-                              { backgroundColor: dayEntries.length > 0 ? (isCurrentDay ? '#FCE7F3' : colors.card) : 'transparent' },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.weeklyCountText,
-                                { color: isCurrentDay ? '#DB2777' : colors.textTertiary },
-                              ]}
-                            >
-                              {dayEntries.length > 0 ? `${dayEntries.length} cls` : 'OFF'}
-                            </Text>
-                          </View>
+                  <ScrollView horizontal={true} showsHorizontalScrollIndicator={true} style={{ marginTop: 8 }}>
+                    <View style={styles.tableWrapper}>
+                      {/* Table Header Row */}
+                      <View style={styles.tableHeaderRow}>
+                        <View style={[styles.thCell, styles.timeThCell, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}>
+                          <Text style={[styles.thText, { color: colors.textSecondary }]}>TIME</Text>
                         </View>
-                      );
-                    })}
-                  </View>
+                        {weekDays.map(d => {
+                          const isToday = d.day === todayWeekday;
+                          return (
+                            <View
+                              key={d.day}
+                              style={[
+                                styles.thCell,
+                                styles.dayThCell,
+                                { backgroundColor: isToday ? '#EC4899' : colors.surfaceVariant, borderColor: isToday ? '#EC4899' : colors.borderSubtle },
+                              ]}
+                            >
+                              <Text style={[styles.thText, { color: isToday ? '#FFFFFF' : colors.text }]}>
+                                {d.label}{isToday ? ' ★' : ''}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+
+                      {/* Table Body Rows */}
+                      <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled={true} showsVerticalScrollIndicator={true}>
+                        {sortedPeriods.map(period => (
+                          <View key={period.id} style={styles.tableDataRow}>
+                            {/* Time column */}
+                            <View style={[styles.tdCell, styles.timeTdCell, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}>
+                              <Text style={[styles.timeCellText, { color: colors.text }]}>{period.startTime}</Text>
+                              <Text style={[styles.timeCellSubText, { color: colors.textSecondary }]}>{period.endTime}</Text>
+                            </View>
+
+                            {/* Day columns */}
+                            {weekDays.map(d => {
+                              const isToday = d.day === todayWeekday;
+                              const entry = entries.find(e => e.weekday === d.day && e.periodId === period.id);
+                              const subject = entry ? subjects.find(s => s.id === entry.subjectId) : null;
+                              const att = isToday && entry ? getAttendanceInfo(period.id, subject?.id) : null;
+
+                              return (
+                                <View
+                                  key={d.day}
+                                  style={[
+                                    styles.tdCell,
+                                    styles.dayTdCell,
+                                    {
+                                      backgroundColor: isToday ? (subject ? '#FDF2F8' : colors.surfaceVariant) : (subject ? colors.card : colors.surface),
+                                      borderColor: isToday ? '#F472B6' : colors.borderSubtle,
+                                    },
+                                  ]}
+                                >
+                                  {subject ? (
+                                    <>
+                                      <Text
+                                        style={[
+                                          styles.tableSubjectText,
+                                          { color: isToday ? '#BE185D' : colors.text },
+                                        ]}
+                                        numberOfLines={1}
+                                      >
+                                        {subject.code || subject.name}
+                                      </Text>
+                                      {entry?.roomOverride || subject.room ? (
+                                        <Text style={[styles.tableRoomText, { color: colors.textTertiary }]} numberOfLines={1}>
+                                          {entry?.roomOverride || subject.room}
+                                        </Text>
+                                      ) : null}
+                                      {att && att.status !== 'unmarked' ? (
+                                        <View style={[styles.tableAttPill, { backgroundColor: att.bg }]}>
+                                          <Text style={[styles.tableAttText, { color: att.color }]}>
+                                            {att.status === 'present' ? '✓' : att.status === 'absent' ? '✗' : 'OFF'}
+                                          </Text>
+                                        </View>
+                                      ) : null}
+                                    </>
+                                  ) : (
+                                    <Text style={[styles.tableEmptyText, { color: colors.textTertiary }]}>—</Text>
+                                  )}
+                                </View>
+                              );
+                            })}
+                          </View>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </ScrollView>
+                  <Text style={[styles.scrollHintText, { color: colors.textTertiary, marginTop: 6 }]}>
+                    ⇄ Scroll horizontally & vertically to explore full weekly schedule table
+                  </Text>
                 </View>
               )}
 
@@ -666,57 +730,71 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                   </View>
 
                   {todayEntries.length > 0 ? (
-                    <View style={styles.itemsListContainer}>
-                      {todayEntries.slice(0, 4).map((item, idx) => {
-                        const [startH, startM] = (item.period?.startTime || '00:00').split(':').map(Number);
-                        const [endH, endM] = (item.period?.endTime || '00:00').split(':').map(Number);
-                        const sMins = startH * 60 + startM;
-                        const eMins = endH * 60 + endM;
-                        let statusText = 'UPCOMING';
-                        let statusBg = '#EEF2FF';
-                        let statusColor = '#4F46E5';
+                    <View>
+                      <ScrollView
+                        style={{ maxHeight: 280 }}
+                        contentContainerStyle={styles.itemsListContainer}
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {todayEntries.map((item, idx) => {
+                          const [startH, startM] = (item.period?.startTime || '00:00').split(':').map(Number);
+                          const [endH, endM] = (item.period?.endTime || '00:00').split(':').map(Number);
+                          const sMins = startH * 60 + startM;
+                          const eMins = endH * 60 + endM;
+                          let statusText = 'UPCOMING';
+                          let statusBg = '#EEF2FF';
+                          let statusColor = '#4F46E5';
 
-                        if (currentMins >= sMins && currentMins <= eMins) {
-                          statusText = `IN SESSION (${eMins - currentMins}m)`;
-                          statusBg = '#DCFCE7';
-                          statusColor = '#16A34A';
-                        } else if (currentMins > eMins) {
-                          statusText = 'DONE ✓';
-                          statusBg = '#F1F5F9';
-                          statusColor = '#64748B';
-                        }
+                          if (currentMins >= sMins && currentMins <= eMins) {
+                            statusText = `IN SESSION (${eMins - currentMins}m)`;
+                            statusBg = '#DCFCE7';
+                            statusColor = '#16A34A';
+                          } else if (currentMins > eMins) {
+                            statusText = 'DONE ✓';
+                            statusBg = '#F1F5F9';
+                            statusColor = '#64748B';
+                          }
 
-                        return (
-                          <View
-                            key={item.entry.id || idx}
-                            style={[styles.classItemCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
-                          >
-                            <View style={[styles.cardAccentBar, { backgroundColor: '#6366F1' }]} />
-                            <View style={{ flex: 1 }}>
-                              <View style={styles.cardHeaderRow}>
-                                <View style={[styles.timeBadge, { backgroundColor: '#312E81' }]}>
-                                  <Text style={styles.timeBadgeText}>
-                                    ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
-                                  </Text>
+                          const att = getAttendanceInfo(item.entry.periodId, item.entry.subjectId);
+
+                          return (
+                            <View
+                              key={item.entry.id || idx}
+                              style={[styles.classItemCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
+                            >
+                              <View style={[styles.cardAccentBar, { backgroundColor: '#6366F1' }]} />
+                              <View style={{ flex: 1 }}>
+                                <View style={styles.cardHeaderRow}>
+                                  <View style={[styles.timeBadge, { backgroundColor: '#312E81' }]}>
+                                    <Text style={styles.timeBadgeText}>
+                                      ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
+                                    </Text>
+                                  </View>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <View style={[styles.attendanceBadge, { backgroundColor: att.bg }]}>
+                                      <Text style={[styles.attendanceBadgeText, { color: att.color }]}>{att.label}</Text>
+                                    </View>
+                                    <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+                                      <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusText}</Text>
+                                    </View>
+                                  </View>
                                 </View>
-                                <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
-                                  <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusText}</Text>
-                                </View>
+                                <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
+                                  {item.subject?.name || 'Class'}
+                                </Text>
+                                <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
+                                  {item.entry.roomOverride || item.subject?.room ? `📍 ${item.entry.roomOverride || item.subject?.room}` : '📍 Room TBA'}
+                                  {item.entry.teacher || item.subject?.teacher ? `  •  👤 ${item.entry.teacher || item.subject?.teacher}` : ''}
+                                </Text>
                               </View>
-                              <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
-                                {item.subject?.name || 'Class'}
-                              </Text>
-                              <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
-                                {item.entry.roomOverride || item.subject?.room ? `📍 ${item.entry.roomOverride || item.subject?.room}` : '📍 Room TBA'}
-                                {item.entry.teacher || item.subject?.teacher ? `  •  👤 ${item.entry.teacher || item.subject?.teacher}` : ''}
-                              </Text>
                             </View>
-                          </View>
-                        );
-                      })}
-                      {todayEntries.length > 4 && (
-                        <Text style={[styles.moreText, { color: colors.primary }]}>
-                          + {todayEntries.length - 4} more lectures today in app
+                          );
+                        })}
+                      </ScrollView>
+                      {todayEntries.length > 3 && (
+                        <Text style={[styles.scrollHintText, { color: colors.textTertiary }]}>
+                          ⇅ Scroll to view all {todayEntries.length} today lectures
                         </Text>
                       )}
                     </View>
@@ -1187,5 +1265,93 @@ const styles = StyleSheet.create({
   weeklyCountText: {
     fontSize: 10,
     fontWeight: '800',
+  },
+  attendanceBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  attendanceBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  scrollHintText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  tableWrapper: {
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+  },
+  thCell: {
+    borderWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeThCell: {
+    width: 68,
+  },
+  dayThCell: {
+    width: 76,
+  },
+  thText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  tableDataRow: {
+    flexDirection: 'row',
+  },
+  tdCell: {
+    borderWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 54,
+  },
+  timeTdCell: {
+    width: 68,
+  },
+  dayTdCell: {
+    width: 76,
+  },
+  timeCellText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  timeCellSubText: {
+    fontSize: 9,
+    marginTop: 1,
+  },
+  tableSubjectText: {
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  tableRoomText: {
+    fontSize: 8,
+    marginTop: 1,
+    textAlign: 'center',
+  },
+  tableAttPill: {
+    marginTop: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  tableAttText: {
+    fontSize: 8,
+    fontWeight: '900',
+  },
+  tableEmptyText: {
+    fontSize: 12,
   },
 });
