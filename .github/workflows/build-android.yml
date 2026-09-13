@@ -105,8 +105,8 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v1.0.0-b${{ github.run_number }}"
-          name: "ClassTrack v1.0.0 (Build #${{ github.run_number }})"
+          tag_name: "v1.1.0-b${{ github.run_number }}"
+          name: "ClassTrack v1.1.0 (Build #${{ github.run_number }})"
           body: |
             ## 📱 ClassTrack Android Build
             - **Commit**: `${{ github.sha }}`
