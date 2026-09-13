@@ -50,6 +50,19 @@ jobs:
       - name: ⚙️ Generate Native Android Project
         run: npx expo prebuild --platform android --clean
 
+      # Build only for modern 64-bit ARM Android devices.
+      # This removes armeabi-v7a, x86 and x86_64 native binaries
+      # from the APK and significantly reduces its size.
+      - name: 📱 Configure ARM64-only Build
+        working-directory: android
+        run: |
+          echo "" >> gradle.properties
+          echo "# ClassTrack: ARM64-only APK" >> gradle.properties
+          echo "reactNativeArchitectures=arm64-v8a" >> gradle.properties
+
+          echo "Configured architectures:"
+          grep "reactNativeArchitectures" gradle.properties
+
       - name: 🐘 Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -71,7 +84,8 @@ jobs:
       - name: ✍️ Sign Unsigned Release APK
         working-directory: android
         run: |
-          UNSIGNED_APK=$(find app/build/outputs/apk -name "*unsigned*.apk" | head -n 1)
+          UNSIGNED_APK=$(find app/build/outputs/apk \
+            -name "*unsigned*.apk" | head -n 1)
 
           if [ -n "$UNSIGNED_APK" ]; then
             echo "Found unsigned APK: $UNSIGNED_APK"
@@ -141,6 +155,7 @@ jobs:
 
           cp "$APK_FILE" ./ClassTrack.apk
 
+          echo "Final APK:"
           ls -lh ./ClassTrack.apk
 
       - name: 🚀 Publish GitHub Release
@@ -161,6 +176,7 @@ jobs:
 
           - **Commit:** \`${{ github.sha }}\`
           - **Branch:** \`${{ github.ref_name }}\`
+          - **Architecture:** ARM64 (\`arm64-v8a\`)
           - **Type:** \`${{ github.event.inputs.build_type || 'release' }}\`
 
           ### 📥 Installation
