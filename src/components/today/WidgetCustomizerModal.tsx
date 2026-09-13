@@ -27,6 +27,7 @@ export const ALL_WIDGET_DEFINITIONS: Omit<WidgetItem, 'enabled'>[] = [
   { id: 'swipe_deck', name: '1-Swipe Attendance Deck', description: 'Gesture-driven attendance swipe cards', icon: 'albums-outline' },
   { id: 'quick_actions', name: 'Quick Action Shortcuts', description: '1-tap QR share, schedule, bunks & launcher', icon: 'grid-outline' },
   { id: 'attendance_health', name: 'Attendance Health & Gauge', description: 'Overall percentage & safe bunk margin', icon: 'analytics-outline' },
+  { id: 'tomorrow_bunk_calculator', name: "Tomorrow's Bunk Simulator", description: 'Full day, morning & afternoon bunk predictor', icon: 'calculator-outline' },
   { id: 'attendance_analytics', name: 'Weekly & Monthly Analytics', description: 'Weekday bar chart & bunk risk trends', icon: 'bar-chart-outline' },
   { id: 'upcoming_exams', name: 'Upcoming Exam Countdown', description: 'Nearest midterm & final exam deadlines', icon: 'school-outline' },
   { id: 'smart_tips', name: 'Daily Productivity Tips', description: 'Study guidance & attendance pro tips', icon: 'bulb-outline' },

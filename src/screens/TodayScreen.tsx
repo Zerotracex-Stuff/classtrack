@@ -19,6 +19,7 @@ import { HolidayModal } from '../components/timetable/HolidayModal';
 import { WidgetCustomizerModal, DEFAULT_WIDGET_ORDER } from '../components/today/WidgetCustomizerModal';
 import { LauncherWidgetModal } from '../components/today/LauncherWidgetModal';
 import { AttendanceAnalyticsChart } from '../components/attendance/AttendanceAnalyticsChart';
+import { TomorrowBunkWidget } from '../components/today/TomorrowBunkWidget';
 import { Holiday, Exam, DayOfWeek } from '../types';
 import { format, parseISO, isFuture, isToday } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
@@ -271,6 +272,9 @@ export const TodayScreen: React.FC = () => {
             </View>
           </Card>
         );
+
+      case 'tomorrow_bunk_calculator':
+        return <TomorrowBunkWidget key="tomorrow_bunk_calculator" />;
 
       case 'attendance_analytics':
         return (
