@@ -474,10 +474,10 @@ index 0000000..f654816
 +    }
 +}
 diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetFactory.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetFactory.java
-index e3c340e..f70e046 100644
+index e3c340e..3455251 100644
 --- a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetFactory.java
 +++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetFactory.java
-@@ -1,56 +1,315 @@
+@@ -1,56 +1,316 @@
  package com.reactnativehomewidget.widget;
  
 +import android.appwidget.AppWidgetManager;
@@ -486,6 +486,7 @@ index e3c340e..f70e046 100644
 +import android.content.SharedPreferences;
 +import android.graphics.Color;
 +import android.util.Log;
++import android.view.View;
  import android.widget.RemoteViews;
  import android.widget.RemoteViewsService;
  
@@ -807,7 +808,7 @@ index e3c340e..f70e046 100644
      }
  
      @Override
-@@ -60,7 +319,7 @@ public class HomeWidgetFactory implements RemoteViewsService.RemoteViewsFactory
+@@ -60,7 +320,7 @@ public class HomeWidgetFactory implements RemoteViewsService.RemoteViewsFactory
  
      @Override
      public int getViewTypeCount() {
@@ -816,7 +817,7 @@ index e3c340e..f70e046 100644
      }
  
      @Override
-@@ -72,4 +331,13 @@ public class HomeWidgetFactory implements RemoteViewsService.RemoteViewsFactory
+@@ -72,4 +332,13 @@ public class HomeWidgetFactory implements RemoteViewsService.RemoteViewsFactory
      public boolean hasStableIds() {
          return true;
      }
