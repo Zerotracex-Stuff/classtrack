@@ -122,14 +122,16 @@ export async function importAllData(jsonString: string): Promise<AppDataPayload>
     throw new Error('Invalid ClassTrack backup file format');
   }
 
+  const current = await initializeOrLoadData();
+
   const payload: AppDataPayload = {
     subjects: parsed.subjects || [],
     periods: parsed.periods || [],
     entries: parsed.entries || [],
-    attendance: parsed.attendance || [],
-    exams: parsed.exams || [],
-    holidays: parsed.holidays || [],
-    settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
+    attendance: parsed.attendance !== undefined ? parsed.attendance : current.attendance,
+    exams: parsed.exams !== undefined ? parsed.exams : current.exams,
+    holidays: parsed.holidays !== undefined ? parsed.holidays : current.holidays,
+    settings: parsed.settings ? { ...DEFAULT_SETTINGS, ...parsed.settings } : current.settings,
   };
 
   await Promise.all([

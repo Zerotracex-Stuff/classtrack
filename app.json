@@ -7,7 +7,10 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow ClassTrack to access your camera to scan classmate timetable QR codes."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -17,6 +20,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.classtrack.ztx",
       "permissions": [
+        "CAMERA",
         "RECEIVE_BOOT_COMPLETED",
         "SCHEDULE_EXACT_ALARM",
         "USE_EXACT_ALARM",
@@ -46,7 +50,14 @@
           "backgroundColor": "#0F0C20"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow ClassTrack to access your camera to scan classmate timetable QR codes.",
+          "barcodeScannerEnabled": true
+        }
+      ]
     ],
     "extra": {
       "eas": {
