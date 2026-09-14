@@ -711,51 +711,69 @@ index e3c340e..b9d78c2 100644
 +                RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_item_class);
  
 -        return views;
-+                String startStr = item.optString("startTime", "--:--");
++                String startStr = item.optString("startTime", "");
 +                String endStr = item.optString("endTime", "");
-+                String timeRange = endStr.isEmpty() ? startStr : (startStr + " - " + endStr);
-+                views.setTextViewText(R.id.item_time, timeRange);
++                if (startStr.isEmpty()) {
++                    views.setViewVisibility(R.id.item_time, View.GONE);
++                } else {
++                    views.setViewVisibility(R.id.item_time, View.VISIBLE);
++                    String timeRange = endStr.isEmpty() ? startStr : (startStr + " - " + endStr);
++                    views.setTextViewText(R.id.item_time, timeRange);
++                }
 +
-+                // Timing / Session Status
++                // Timing / Session Status / Period Label
 +                int startMins = parseTimeMins(startStr);
 +                int endMins = parseTimeMins(endStr);
 +                Calendar now = Calendar.getInstance();
 +                int currentMins = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE);
 +
-+                String statusStr = "CLASS #" + (position + 1);
-+                if ("UpcomingClassesWidget".equals(widgetType) || "TodayScheduleWidget".equals(widgetType)) {
-+                    if (currentMins >= startMins && currentMins <= endMins) {
-+                        int minsLeft = endMins - currentMins;
-+                        statusStr = "IN SESSION (" + minsLeft + "m)";
-+                    } else if (currentMins < startMins) {
-+                        int minsUntil = startMins - currentMins;
-+                        if (minsUntil <= 60) {
-+                            statusStr = "IN " + minsUntil + "m";
-+                        } else {
-+                            statusStr = "UPCOMING";
-+                        }
-+                    } else if (currentMins > endMins) {
-+                        statusStr = "DONE ✓";
-+                    }
-+                } else {
-+                    statusStr = "LECTURE " + (position + 1);
-+                }
-+                views.setTextViewText(R.id.item_status, statusStr);
++                String periodLabel = item.optString("periodLabel", "");
++                boolean showPeriod = !item.has("periodLabel") || !periodLabel.isEmpty();
 +
-+                // Live Attendance Status Mark: Present, Absent, Cancelled, Unmarked
-+                String attStatus = item.optString("attendanceStatus", "unmarked");
-+                if ("present".equalsIgnoreCase(attStatus)) {
-+                    views.setTextViewText(R.id.item_attendance, "✓ PRESENT");
-+                    views.setTextColor(R.id.item_attendance, Color.parseColor("#34D399"));
-+                } else if ("absent".equalsIgnoreCase(attStatus)) {
-+                    views.setTextViewText(R.id.item_attendance, "✗ ABSENT");
-+                    views.setTextColor(R.id.item_attendance, Color.parseColor("#F87171"));
-+                } else if ("cancelled".equalsIgnoreCase(attStatus)) {
-+                    views.setTextViewText(R.id.item_attendance, "CANCELLED");
-+                    views.setTextColor(R.id.item_attendance, Color.parseColor("#FBBF24"));
++                if (!showPeriod) {
++                    views.setViewVisibility(R.id.item_status, View.GONE);
 +                } else {
-+                    views.setTextViewText(R.id.item_attendance, "UNMARKED");
-+                    views.setTextColor(R.id.item_attendance, Color.parseColor("#94A3B8"));
++                    views.setViewVisibility(R.id.item_status, View.VISIBLE);
++                    String statusStr = !periodLabel.isEmpty() ? periodLabel : ("CLASS #" + (position + 1));
++                    if ("UpcomingClassesWidget".equals(widgetType) || "TodayScheduleWidget".equals(widgetType)) {
++                        if (currentMins >= startMins && currentMins <= endMins && startMins > 0) {
++                            int minsLeft = endMins - currentMins;
++                            statusStr = (!periodLabel.isEmpty() ? (periodLabel + " • ") : "") + "IN SESSION (" + minsLeft + "m)";
++                        } else if (currentMins < startMins && startMins > 0) {
++                            int minsUntil = startMins - currentMins;
++                            if (minsUntil <= 60) {
++                                statusStr = (!periodLabel.isEmpty() ? (periodLabel + " • ") : "") + "IN " + minsUntil + "m";
++                            } else {
++                                statusStr = !periodLabel.isEmpty() ? periodLabel : "UPCOMING";
++                            }
++                        } else if (currentMins > endMins && endMins > 0) {
++                            statusStr = (!periodLabel.isEmpty() ? (periodLabel + " • ") : "") + "DONE ✓";
++                        }
++                    } else {
++                        statusStr = !periodLabel.isEmpty() ? periodLabel : ("LECTURE " + (position + 1));
++                    }
++                    views.setTextViewText(R.id.item_status, statusStr);
++                }
++
++                // Live Attendance Status Mark: Present, Absent, Cancelled, Unmarked, Hidden
++                String attStatus = item.optString("attendanceStatus", "unmarked");
++                if ("hidden".equalsIgnoreCase(attStatus)) {
++                    views.setViewVisibility(R.id.item_attendance, View.GONE);
++                } else {
++                    views.setViewVisibility(R.id.item_attendance, View.VISIBLE);
++                    if ("present".equalsIgnoreCase(attStatus)) {
++                        views.setTextViewText(R.id.item_attendance, "✓ PRESENT");
++                        views.setTextColor(R.id.item_attendance, Color.parseColor("#34D399"));
++                    } else if ("absent".equalsIgnoreCase(attStatus)) {
++                        views.setTextViewText(R.id.item_attendance, "✗ ABSENT");
++                        views.setTextColor(R.id.item_attendance, Color.parseColor("#F87171"));
++                    } else if ("cancelled".equalsIgnoreCase(attStatus)) {
++                        views.setTextViewText(R.id.item_attendance, "CANCELLED");
++                        views.setTextColor(R.id.item_attendance, Color.parseColor("#FBBF24"));
++                    } else {
++                        views.setTextViewText(R.id.item_attendance, "UNMARKED");
++                        views.setTextColor(R.id.item_attendance, Color.parseColor("#94A3B8"));
++                    }
 +                }
 +
 +                // Subject Title
@@ -771,8 +789,12 @@ index e3c340e..b9d78c2 100644
 +                    if (meta.length() > 0) meta.append("  •  ");
 +                    meta.append("👤 ").append(teacher);
 +                }
-+                if (meta.length() == 0) meta.append("📍 Room TBA");
-+                views.setTextViewText(R.id.item_room, meta.toString());
++                if (meta.length() == 0) {
++                    views.setViewVisibility(R.id.item_room, View.GONE);
++                } else {
++                    views.setViewVisibility(R.id.item_room, View.VISIBLE);
++                    views.setTextViewText(R.id.item_room, meta.toString());
++                }
 +
 +                Intent fillInIntent = new Intent();
 +                views.setOnClickFillInIntent(R.id.item_container, fillInIntent);

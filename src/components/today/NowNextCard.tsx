@@ -7,6 +7,7 @@ import { Badge } from '../common/Badge';
 import { Ionicons } from '@expo/vector-icons';
 import { Period, Subject, TimetableEntry } from '../../types';
 import { formatTime, formatTimeRange } from '../../utils/timeUtils';
+import { format } from 'date-fns';
 
 export const NowNextCard: React.FC = () => {
   const { colors } = useTheme();
@@ -19,6 +20,11 @@ export const NowNextCard: React.FC = () => {
     const timer = setInterval(() => setCurrentTime(new Date()), 30000);
     return () => clearInterval(timer);
   }, []);
+
+  const todayStr = format(currentTime, 'yyyy-MM-dd');
+  const activeHoliday = holidays.find(
+    h => todayStr >= h.startDate && todayStr <= h.endDate
+  );
 
   // Today's weekday: 0 = Mon ... 6 = Sun
   const rawDay = currentTime.getDay();
@@ -47,6 +53,26 @@ export const NowNextCard: React.FC = () => {
   let nextEntry: TimetableEntry | undefined;
   let progress = 0;
   let remainingMins = 0;
+
+  if (activeHoliday) {
+    return (
+      <Card style={[styles.weekendCard, { backgroundColor: colors.primaryContainer, borderColor: colors.primary }]}>
+        <View style={styles.row}>
+          <View style={[styles.iconCircle, { backgroundColor: colors.primary }]}>
+            <Ionicons name="sunny" size={24} color={colors.onPrimary} />
+          </View>
+          <View style={{ marginLeft: 14, flex: 1 }}>
+            <Text style={[styles.statusTitle, { color: colors.onPrimaryContainer }]}>
+              🌴 {activeHoliday.name}
+            </Text>
+            <Text style={[styles.statusSubtitle, { color: colors.onPrimaryContainer, opacity: 0.9 }]}>
+              Holiday break active ({activeHoliday.startDate} to {activeHoliday.endDate}) • No classes scheduled for today!
+            </Text>
+          </View>
+        </View>
+      </Card>
+    );
+  }
 
   if (isWorkingDay) {
     for (const p of todayPeriods) {

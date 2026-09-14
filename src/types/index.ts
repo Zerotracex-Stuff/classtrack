@@ -89,5 +89,12 @@ export interface UserSettings {
   weeklyWidgetShowTeachers?: boolean; // show teacher names in weekly widget
   weeklyWidgetShowTimes?: boolean; // show period times in weekly widget
   weeklyWidgetIncludeWeekends?: boolean; // include Sat/Sun in weekly widget
+  // Launcher widget detail display customization preferences
+  launcherWidgetShowTime?: boolean; // toggle showing class times / countdowns (default: true)
+  launcherWidgetShowPeriod?: boolean; // toggle showing period number / label (default: true)
+  launcherWidgetShowRoom?: boolean; // toggle showing room numbers (default: true)
+  launcherWidgetShowTeacher?: boolean; // toggle showing teacher names (default: true)
+  launcherWidgetShowSubjectCode?: boolean; // toggle showing subject code instead of name (default: false)
+  launcherWidgetShowAttendanceStatus?: boolean; // toggle showing attendance badge on cards (default: true)
 }
 

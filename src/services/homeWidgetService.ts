@@ -35,27 +35,49 @@ export const syncLauncherHomeWidgets = async (payload: {
     const todayWeekday = ((new Date().getDay() + 6) % 7); // 0 = Mon, ..., 6 = Sun
     const timeFmt = settings.timeFormat || '12h';
 
+    // Check if today is an active holiday
+    const activeHoliday = holidays.find(
+      h => todayStr >= h.startDate && todayStr <= h.endDate
+    );
+
     // 1. Calculate Today's Next/Active Class
-    const todayEntries = entries
-      .filter(e => e.weekday === todayWeekday)
-      .map(entry => {
-        const period = periods.find(p => p.id === entry.periodId);
-        const subject = subjects.find(s => s.id === entry.subjectId);
-        return { entry, period, subject };
-      })
-      .filter(item => item.period && item.subject)
-      .sort((a, b) => (a.period?.startTime || '').localeCompare(b.period?.startTime || ''));
+    const todayEntries = activeHoliday
+      ? []
+      : entries
+          .filter(e => e.weekday === todayWeekday)
+          .map(entry => {
+            const period = periods.find(p => p.id === entry.periodId);
+            const subject = subjects.find(s => s.id === entry.subjectId);
+            return { entry, period, subject };
+          })
+          .filter(item => item.period && item.subject)
+          .sort((a, b) => (a.period?.startTime || '').localeCompare(b.period?.startTime || ''));
 
     const now = new Date();
     const currentMins = now.getHours() * 60 + now.getMinutes();
 
-    let nextClassName = 'No More Classes Today';
-    let nextClassTime = 'Rest & Review ☕';
-    let nextClassRoom = '';
-    let nextClassTeacher = '';
-    let nextClassCountdown = 'Free Time';
+    // Widget detail display customization preferences
+    const showTime = settings.launcherWidgetShowTime !== false;
+    const showPeriod = settings.launcherWidgetShowPeriod !== false;
+    const showRoom = settings.launcherWidgetShowRoom !== false;
+    const showTeacher = settings.launcherWidgetShowTeacher !== false;
+    const showSubjectCode = settings.launcherWidgetShowSubjectCode === true;
+    const showAttendance = settings.launcherWidgetShowAttendanceStatus !== false;
 
-    if (todayEntries.length > 0) {
+    const getSubDisplayName = (sub?: Subject) => {
+      if (!sub) return 'Class';
+      if (showSubjectCode && sub.code) return sub.code;
+      return sub.name;
+    };
+
+    let nextClassName = activeHoliday ? `🌴 ${activeHoliday.name}` : 'No More Classes Today';
+    let nextClassTime = activeHoliday ? 'Holiday Break' : 'Rest & Review ☕';
+    let nextClassRoom = activeHoliday ? 'No Classes Today' : '';
+    let nextClassTeacher = activeHoliday ? 'Enjoy your break!' : '';
+    let nextClassPeriod = '';
+    let nextClassCountdown = activeHoliday ? 'On Vacation 🎉' : 'Free Time';
+
+    if (!activeHoliday && todayEntries.length > 0) {
       for (const item of todayEntries) {
         if (!item.period) continue;
         const [startH, startM] = item.period.startTime.split(':').map(Number);
@@ -64,18 +86,20 @@ export const syncLauncherHomeWidgets = async (payload: {
         const endMins = endH * 60 + endM;
 
         if (currentMins >= startMins && currentMins <= endMins) {
-          nextClassName = item.subject?.name || 'Class in Progress';
+          nextClassName = getSubDisplayName(item.subject);
           nextClassTime = formatTimeRange(item.period.startTime, item.period.endTime, timeFmt);
           nextClassRoom = item.entry.roomOverride || item.subject?.room || '';
           nextClassTeacher = item.entry.teacher || item.subject?.teacher || '';
+          nextClassPeriod = item.period.label || '';
           const minsLeft = endMins - currentMins;
           nextClassCountdown = `In Session (${minsLeft}m left)`;
           break;
         } else if (currentMins < startMins) {
-          nextClassName = item.subject?.name || 'Upcoming Class';
+          nextClassName = getSubDisplayName(item.subject);
           nextClassTime = formatTimeRange(item.period.startTime, item.period.endTime, timeFmt);
           nextClassRoom = item.entry.roomOverride || item.subject?.room || '';
           nextClassTeacher = item.entry.teacher || item.subject?.teacher || '';
+          nextClassPeriod = item.period.label || '';
           const minsUntil = startMins - currentMins;
           nextClassCountdown = `Starts in ${minsUntil}m`;
           break;
@@ -85,8 +109,8 @@ export const syncLauncherHomeWidgets = async (payload: {
       // If all classes passed for today
       if (nextClassName === 'No More Classes Today' && todayEntries[0]) {
         const first = todayEntries[0];
-        nextClassName = first.subject?.name || 'First Class Tomorrow';
-        nextClassTime = `${formatTime(first.period?.startTime, timeFmt)} (${first.subject?.name})`;
+        nextClassName = getSubDisplayName(first.subject);
+        nextClassTime = `${formatTime(first.period?.startTime, timeFmt)} (${getSubDisplayName(first.subject)})`;
         nextClassCountdown = 'Done for Today 🎉';
       }
     }
@@ -138,8 +162,14 @@ export const syncLauncherHomeWidgets = async (payload: {
     let scheduleContent = 'No classes scheduled for today. Take time off! ☕';
     if (scheduleCount > 0) {
       const first = todayEntries[0];
-      const room = first.entry.roomOverride || first.subject?.room;
-      scheduleContent = `1st: ${first.subject?.name || 'Class'} at ${formatTime(first.period?.startTime, timeFmt)}${room ? ' (' + room + ')' : ''}`;
+      const timePart = showTime ? ` at ${formatTime(first.period?.startTime, timeFmt)}` : '';
+      const roomVal = first.entry.roomOverride || first.subject?.room;
+      const roomPart = (showRoom && roomVal) ? ` (${roomVal})` : '';
+      const periodVal = first.period?.label;
+      const periodPart = (showPeriod && periodVal) ? ` [${periodVal}]` : '';
+      const teacherVal = first.entry.teacher || first.subject?.teacher;
+      const teacherPart = (showTeacher && teacherVal) ? ` • ${teacherVal}` : '';
+      scheduleContent = `1st: ${getSubDisplayName(first.subject)}${periodPart}${timePart}${roomPart}${teacherPart}`;
     }
 
     // 5. Attendance Analytics & Risk Math
@@ -155,7 +185,7 @@ export const syncLauncherHomeWidgets = async (payload: {
       if (pct < target) subjectsBelowTarget++;
       if (pct < lowestPct) {
         lowestPct = pct;
-        lowestSubjectName = s.name;
+        lowestSubjectName = getSubDisplayName(s);
       }
     });
 
@@ -172,9 +202,6 @@ export const syncLauncherHomeWidgets = async (payload: {
     }
 
     // 7. Active Holiday Break Math
-    const activeHoliday = holidays.find(
-      h => todayStr >= h.startDate && todayStr <= h.endDate
-    );
     const holidayTitle = activeHoliday ? `🌴 ${activeHoliday.name}` : 'No Active Vacation Break';
     const holidayContent = activeHoliday
       ? `Holiday active (${activeHoliday.startDate} to ${activeHoliday.endDate}) • Attendance alerts paused 🎉`
@@ -188,7 +215,9 @@ export const syncLauncherHomeWidgets = async (payload: {
 
       // Determine today's attendance mark for this entry if applicable
       let markStatus = 'unmarked';
-      if (e.weekday === todayWeekday) {
+      if (activeHoliday) {
+        markStatus = 'holiday';
+      } else if (e.weekday === todayWeekday) {
         const record = attendance.find(a =>
           a.date === todayStr &&
           (a.periodId ? a.periodId === e.periodId : a.subjectId === e.subjectId)
@@ -203,12 +232,13 @@ export const syncLauncherHomeWidgets = async (payload: {
       return {
         weekday: e.weekday,
         periodId: e.periodId,
-        startTime: p?.startTime || '',
-        endTime: p?.endTime || '',
-        subjectName: s?.name || 'Class',
-        room: e.roomOverride || s?.room || '',
-        teacher: e.teacher || e.teacherOverride || s?.teacher || '',
-        attendanceStatus: markStatus, // 'present' | 'absent' | 'cancelled' | 'unmarked'
+        startTime: showTime ? (p?.startTime || '') : '',
+        endTime: showTime ? (p?.endTime || '') : '',
+        subjectName: getSubDisplayName(s),
+        room: showRoom ? (e.roomOverride || s?.room || '') : '',
+        teacher: showTeacher ? (e.teacher || e.teacherOverride || s?.teacher || '') : '',
+        periodLabel: showPeriod ? (p?.label || '') : '',
+        attendanceStatus: !showAttendance ? 'hidden' : markStatus, // 'present' | 'absent' | 'cancelled' | 'unmarked' | 'hidden'
       };
     });
 
@@ -230,9 +260,14 @@ export const syncLauncherHomeWidgets = async (payload: {
         if (isSupported) {
           // 1. Next/Active Class Widget
           const classMetaParts = [];
-          if (nextClassTime) classMetaParts.push(`⏰ ${nextClassTime}`);
-          if (nextClassRoom) classMetaParts.push(`📍 ${nextClassRoom}`);
-          if (nextClassTeacher) classMetaParts.push(`👤 ${nextClassTeacher}`);
+          if (!activeHoliday) {
+            if (showPeriod && nextClassPeriod) classMetaParts.push(`🏷️ ${nextClassPeriod}`);
+            if (showTime && nextClassTime) classMetaParts.push(`⏰ ${nextClassTime}`);
+            if (showRoom && nextClassRoom) classMetaParts.push(`📍 ${nextClassRoom}`);
+            if (showTeacher && nextClassTeacher) classMetaParts.push(`👤 ${nextClassTeacher}`);
+          } else {
+            classMetaParts.push(`🌴 ${nextClassTime}`);
+          }
 
           await (HomeWidget as any).updateWidget('NextClassWidget', {
             id: 'NextClassWidget',
@@ -252,11 +287,13 @@ export const syncLauncherHomeWidgets = async (payload: {
           await (HomeWidget as any).updateWidget('UpcomingClassesWidget', {
             id: 'UpcomingClassesWidget',
             tag: '⏳ UPCOMING CLASSES',
-            badge: 'UPCOMING',
-            badgeColor: '#6366F1',
-            title: 'Upcoming Classes Today',
-            content: 'Tap to view upcoming classes',
-            schedule_json: scheduleJsonStr,
+            badge: activeHoliday ? 'HOLIDAY' : 'UPCOMING',
+            badgeColor: activeHoliday ? '#10B981' : '#6366F1',
+            title: activeHoliday ? `🌴 ${activeHoliday.name}` : 'Upcoming Classes Today',
+            content: activeHoliday
+              ? 'Holiday break active • No classes scheduled today 🎉'
+              : 'Tap to view upcoming classes',
+            schedule_json: activeHoliday ? '[]' : scheduleJsonStr,
             attendance_json: attendanceJsonStr,
             backgroundColor: '#0F172A',
             textColor: '#FFFFFF',
@@ -281,7 +318,7 @@ export const syncLauncherHomeWidgets = async (payload: {
             id: 'WeeklyTimetableWidget',
             tag: '📅 WEEKLY TIMETABLE',
             badge: 'WEEKLY',
-            badgeColor: '#EC4899',
+            badgeColor: '#6366F1',
             title: 'Weekly Timetable Overview',
             content: 'Tap to view full weekly grid',
             schedule_json: scheduleJsonStr,
@@ -320,11 +357,11 @@ export const syncLauncherHomeWidgets = async (payload: {
           await (HomeWidget as any).updateWidget('TodayScheduleWidget', {
             id: 'TodayScheduleWidget',
             tag: '📚 TODAY\'S DECK',
-            badge: `${scheduleCount} LECTURES`,
-            badgeColor: '#6366F1',
-            title: `Today: ${scheduleCount} Scheduled Classes`,
-            content: scheduleContent,
-            schedule_json: scheduleJsonStr,
+            badge: activeHoliday ? 'VACATION' : `${scheduleCount} LECTURES`,
+            badgeColor: activeHoliday ? '#10B981' : '#6366F1',
+            title: activeHoliday ? `🌴 ${activeHoliday.name}` : `Today: ${scheduleCount} Scheduled Classes`,
+            content: activeHoliday ? 'Holiday break active • Attendance alerts paused 🎉' : scheduleContent,
+            schedule_json: activeHoliday ? '[]' : scheduleJsonStr,
             attendance_json: attendanceJsonStr,
             backgroundColor: '#0F172A',
             textColor: '#FFFFFF',

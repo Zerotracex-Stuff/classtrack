@@ -87,6 +87,7 @@ export const TodayScreen: React.FC = () => {
   // Today's Scheduled Classes List
   const todayWeekday = ((new Date().getDay() + 6) % 7) as DayOfWeek; // 0 = Mon, ..., 6 = Sun
   const todayClasses = useMemo(() => {
+    if (activeHoliday) return [];
     return entries
       .filter(e => e.weekday === todayWeekday)
       .map(entry => {
@@ -99,7 +100,7 @@ export const TodayScreen: React.FC = () => {
       })
       .filter(item => item.period && item.subject)
       .sort((a, b) => (a.period?.startTime || '').localeCompare(b.period?.startTime || ''));
-  }, [entries, periods, subjects, attendance, todayWeekday, todayStr]);
+  }, [entries, periods, subjects, attendance, todayWeekday, todayStr, activeHoliday]);
 
   // Current time greeting
   const getGreeting = () => {
@@ -140,9 +141,13 @@ export const TodayScreen: React.FC = () => {
         );
 
       case 'now_next':
+        // When holiday is active, suppress upcoming classes
+        if (activeHoliday) return null;
         return <NowNextCard key="now_next" />;
 
       case 'swipe_deck':
+        // Never ask to mark attendance on a holiday break!
+        if (activeHoliday) return null;
         return <SwipeDeck key="swipe_deck" />;
 
       case 'quick_actions':

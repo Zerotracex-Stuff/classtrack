@@ -40,6 +40,7 @@ export const SwipeDeck: React.FC = () => {
     markAttendance,
     removeAttendance,
     settings,
+    holidays,
   } = useApp();
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -55,6 +56,11 @@ export const SwipeDeck: React.FC = () => {
   const todayWeekday = ((rawDay + 6) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
   const todayStr = format(today, 'yyyy-MM-dd');
 
+  // Check if today is a holiday
+  const isTodayHoliday = holidays.some(
+    h => todayStr >= h.startDate && todayStr <= h.endDate
+  );
+
   const getMinutes = (t: string) => {
     const parts = (t || '00:00').split(':').map(Number);
     return (parts[0] || 0) * 60 + (parts[1] || 0);
@@ -64,7 +70,7 @@ export const SwipeDeck: React.FC = () => {
 
   // Build list of today's academic periods (excluding breaks), sorted by time
   const todayClasses: DeckItem[] = React.useMemo(() => {
-    if (!settings.workingDays.includes(todayWeekday)) return [];
+    if (isTodayHoliday || !settings.workingDays.includes(todayWeekday)) return [];
 
     const sortedPeriods = [...periods]
       .filter(p => !p.isBreak)
@@ -201,7 +207,7 @@ export const SwipeDeck: React.FC = () => {
     extrapolate: 'clamp',
   });
 
-  if (todayClasses.length === 0) {
+  if (isTodayHoliday || todayClasses.length === 0) {
     return null;
   }
 

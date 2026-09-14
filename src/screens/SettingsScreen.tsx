@@ -10,6 +10,9 @@ import {
   Platform,
   Switch,
   Image,
+  Share,
+  Clipboard,
+  Linking,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useApp } from '../context/AppContext';
@@ -25,6 +28,11 @@ import { Paths, File } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { ShareScheduleModal } from '../components/timetable/ShareScheduleModal';
 import { LauncherWidgetModal } from '../components/today/LauncherWidgetModal';
+import {
+  ShareAppModal,
+  getAppDownloadUrl,
+  getAppShareMessage,
+} from '../components/settings/ShareAppModal';
 import { getScheduledNotificationCount, scheduleAllReminders } from '../services/notificationService';
 
 interface FeatureItem {
@@ -135,7 +143,66 @@ export const SettingsScreen: React.FC = () => {
   const [testingAlert, setTestingAlert] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [launcherModalVisible, setLauncherModalVisible] = useState(false);
+  const [shareAppModalVisible, setShareAppModalVisible] = useState(false);
+  const [copiedApkLink, setCopiedApkLink] = useState(false);
+  const [copiedShareText, setCopiedShareText] = useState(false);
   const [activeReminderCount, setActiveReminderCount] = useState<number>(0);
+
+  const currentUsername = (studentName || settings.studentName || '').trim();
+  const downloadUrl = getAppDownloadUrl(currentUsername);
+  const shareMessage = getAppShareMessage(currentUsername);
+
+  const handleShareApp = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          await navigator.share({
+            title: 'ClassTrack App Download',
+            text: shareMessage,
+            url: downloadUrl,
+          });
+          return;
+        }
+        Clipboard.setString(shareMessage);
+        setCopiedShareText(true);
+        setTimeout(() => setCopiedShareText(false), 3000);
+        Alert.alert('Copied to Clipboard! 📋', 'Share message with all features and download link copied to clipboard.');
+        return;
+      }
+
+      await Share.share({
+        title: 'ClassTrack App Download',
+        message: shareMessage,
+        url: downloadUrl,
+      });
+    } catch (err: any) {
+      if (err?.message !== 'User did not share') {
+        Alert.alert('Share Error', err?.message || 'Could not share app link.');
+      }
+    }
+  };
+
+  const handleCopyDownloadLink = () => {
+    Clipboard.setString(downloadUrl);
+    setCopiedApkLink(true);
+    setTimeout(() => setCopiedApkLink(false), 3000);
+    Alert.alert('Download Link Copied! 🔗', 'Personal download link copied to clipboard:\n\n' + downloadUrl);
+  };
+
+  const handleCopyShareText = () => {
+    Clipboard.setString(shareMessage);
+    setCopiedShareText(true);
+    setTimeout(() => setCopiedShareText(false), 3000);
+    Alert.alert('Share Text Copied! 📋', 'Full feature list and download link copied to clipboard.');
+  };
+
+  const handleOpenWebsite = async () => {
+    try {
+      await Linking.openURL(downloadUrl);
+    } catch {
+      Alert.alert('Browser Error', 'Could not open link in browser.');
+    }
+  };
 
   React.useEffect(() => {
     (async () => {
@@ -301,7 +368,14 @@ export const SettingsScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Header title="Settings & More" subtitle="Customize ClassTrack to your rhythm" />
+      <Header
+        title="Settings & More"
+        subtitle="Customize ClassTrack to your rhythm"
+        rightAction={{
+          icon: 'share-social-outline',
+          onPress: () => setShareAppModalVisible(true),
+        }}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -328,6 +402,114 @@ export const SettingsScreen: React.FC = () => {
             >
               <Ionicons name="options-outline" size={16} color={colors.onPrimary} />
               <Text style={[styles.tourBtnText, { color: colors.onPrimary }]}>Setup</Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
+
+        {/* Share App Download Link Card (Features are in the sharing text) */}
+        <Card
+          style={[
+            styles.sectionCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.primary + '55',
+              borderWidth: 1.5,
+            },
+          ]}
+        >
+          {/* Card Top Title Row */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 8 }}>
+              <View style={[styles.shareAppIconBox, { backgroundColor: colors.primaryContainer }]}>
+                <Ionicons name="share-social" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>
+                  Share App &amp; Download Link 🚀
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>
+                  Invite friends with your link (features included in share text)
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.freeApkBadge, { backgroundColor: colors.presentBg, borderColor: colors.present + '40' }]}>
+              <Text style={[styles.freeApkBadgeText, { color: colors.present }]}>
+                {currentUsername ? `@${currentUsername}` : 'Free'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Quick Copy Link Box */}
+          <View style={[styles.shareLinkBox, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}>
+            <Ionicons name="link-outline" size={16} color={colors.primary} />
+            <Text
+              style={[styles.shareLinkText, { color: colors.text }]}
+              numberOfLines={1}
+              ellipsizeMode="middle"
+            >
+              {downloadUrl}
+            </Text>
+            <TouchableOpacity
+              style={[styles.miniCopyBtn, { backgroundColor: colors.primaryContainer }]}
+              onPress={handleCopyDownloadLink}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name={copiedApkLink ? 'checkmark' : 'copy-outline'}
+                size={13}
+                color={colors.onPrimaryContainer}
+              />
+              <Text style={[styles.miniCopyBtnText, { color: colors.onPrimaryContainer }]}>
+                {copiedApkLink ? 'Copied' : 'Copy Link'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Action Buttons Row */}
+          <View style={[styles.shareActionsRow, { marginTop: 12 }]}>
+            <TouchableOpacity
+              style={[styles.primaryShareBtn, { backgroundColor: colors.primary }]}
+              onPress={handleShareApp}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="share-social" size={16} color={colors.onPrimary} />
+              <Text style={[styles.primaryShareBtnText, { color: colors.onPrimary }]}>
+                Share App
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryQrBtn, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
+              onPress={handleCopyShareText}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={copiedShareText ? 'checkmark' : 'document-text-outline'}
+                size={16}
+                color={colors.primary}
+              />
+              <Text style={[styles.secondaryQrBtnText, { color: colors.text }]}>
+                {copiedShareText ? 'Copied' : 'Copy Text'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryQrBtn, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle, paddingHorizontal: 12 }]}
+              onPress={() => setShareAppModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="qr-code-outline" size={16} color={colors.primary} />
+              <Text style={[styles.secondaryQrBtnText, { color: colors.text }]}>
+                QR
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.iconCircleBtn, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
+              onPress={handleOpenWebsite}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="globe-outline" size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
         </Card>
@@ -874,6 +1056,18 @@ export const SettingsScreen: React.FC = () => {
               100% Offline • Zero Tracking • Local Storage
             </Text>
           </View>
+
+          {/* Share ClassTrack Button in About Card */}
+          <TouchableOpacity
+            style={[styles.aboutShareBtn, { backgroundColor: colors.primaryContainer, borderColor: colors.primary }]}
+            onPress={() => setShareAppModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="share-social-outline" size={17} color={colors.primary} />
+            <Text style={[styles.aboutShareBtnText, { color: colors.primary }]}>
+              Share App Download Link &amp; Features
+            </Text>
+          </TouchableOpacity>
         </Card>
 
         {/* Features Overview */}
@@ -940,6 +1134,12 @@ export const SettingsScreen: React.FC = () => {
       <LauncherWidgetModal
         visible={launcherModalVisible}
         onClose={() => setLauncherModalVisible(false)}
+      />
+
+      <ShareAppModal
+        visible={shareAppModalVisible}
+        onClose={() => setShareAppModalVisible(false)}
+        username={currentUsername}
       />
     </View>
   );
@@ -1279,5 +1479,131 @@ const styles = StyleSheet.create({
   featureDesc: {
     fontSize: 12,
     lineHeight: 17,
+  },
+  shareAppIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  freeApkBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  freeApkBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  shareLinkBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 8,
+    gap: 8,
+  },
+  shareLinkText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  miniCopyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  miniCopyBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  preDownloadFeatureGrid: {
+    gap: 8,
+  },
+  preDownloadFeatureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  miniFeatIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  preFeatTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  preFeatDesc: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 1,
+  },
+  shareActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  primaryShareBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  primaryShareBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  secondaryQrBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
+  },
+  secondaryQrBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  iconCircleBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  aboutShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 12,
+    gap: 8,
+  },
+  aboutShareBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

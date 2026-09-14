@@ -16,6 +16,7 @@ import { syncLauncherHomeWidgets } from '../../services/homeWidgetService';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO, isFuture, isToday } from 'date-fns';
 import { formatTimeRange } from '../../utils/timeUtils';
+import { Subject, UserSettings } from '../../types';
 
 interface LauncherWidgetModalProps {
   visible: boolean;
@@ -27,12 +28,41 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
   onClose,
 }) => {
   const { colors } = useTheme();
-  const { subjects, periods, entries, attendance, exams, holidays, settings } = useApp();
+  const { subjects, periods, entries, attendance, exams, holidays, settings, updateSettings } = useApp();
 
   const [activePreviewTab, setActivePreviewTab] = useState<
     'next_class' | 'upcoming_classes' | 'tomorrows_classes' | 'weekly_timetable' | 'today_schedule' | 'attendance' | 'analytics' | 'exams' | 'quick_actions' | 'smart_tips' | 'holiday'
   >('next_class');
   const [syncing, setSyncing] = useState(false);
+  const [showCustomizationPanel, setShowCustomizationPanel] = useState(true);
+
+  // Customization preference flags
+  const showTime = settings.launcherWidgetShowTime !== false;
+  const showPeriod = settings.launcherWidgetShowPeriod !== false;
+  const showRoom = settings.launcherWidgetShowRoom !== false;
+  const showTeacher = settings.launcherWidgetShowTeacher !== false;
+  const showSubjectCode = settings.launcherWidgetShowSubjectCode === true;
+  const showAttendance = settings.launcherWidgetShowAttendanceStatus !== false;
+
+  const handleToggleOption = async (key: keyof UserSettings, value: boolean) => {
+    const updated = { ...settings, [key]: value };
+    await updateSettings(updated);
+    syncLauncherHomeWidgets({
+      subjects,
+      periods,
+      entries,
+      attendance,
+      exams,
+      holidays,
+      settings: updated,
+    });
+  };
+
+  const getSubjectDisplayName = (sub?: Subject) => {
+    if (!sub) return 'Class';
+    if (showSubjectCode && sub.code) return sub.code;
+    return sub.name;
+  };
 
   // Math for Live Interactive Launcher Widget Preview
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -191,6 +221,144 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            {/* Widget Detail Customization Options Card */}
+            <View style={[styles.customizationCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}>
+              <TouchableOpacity
+                style={styles.customizationHeader}
+                onPress={() => setShowCustomizationPanel(!showCustomizationPanel)}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                  <View style={[styles.customizationIconWrap, { backgroundColor: colors.primaryContainer }]}>
+                    <Ionicons name="options-outline" size={18} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.customizationTitle, { color: colors.text }]}>Customize Widget Details</Text>
+                    <Text style={[styles.customizationSub, { color: colors.textSecondary }]}>
+                      {showCustomizationPanel ? 'Tap to collapse customization options' : 'Customize time, period, room, teacher & badges'}
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons
+                  name={showCustomizationPanel ? 'chevron-up-circle' : 'chevron-down-circle'}
+                  size={22}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+
+              {showCustomizationPanel && (
+                <View style={[styles.customizationBody, { borderTopColor: colors.borderSubtle, borderTopWidth: 1 }]}>
+                  {/* 1. Time */}
+                  <View style={[styles.toggleRow, { borderBottomColor: colors.borderSubtle }]}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="time-outline" size={16} color={colors.primary} />
+                        <Text style={[styles.toggleLabel, { color: colors.text }]}>Class Time</Text>
+                      </View>
+                      <Text style={[styles.toggleDesc, { color: colors.textSecondary }]}>
+                        Show start & end schedule timings (e.g. 09:00 - 09:45)
+                      </Text>
+                    </View>
+                    <Switch
+                      value={showTime}
+                      onValueChange={(val) => handleToggleOption('launcherWidgetShowTime', val)}
+                      trackColor={{ false: colors.borderSubtle, true: colors.primary }}
+                    />
+                  </View>
+
+                  {/* 2. Period Label */}
+                  <View style={[styles.toggleRow, { borderBottomColor: colors.borderSubtle }]}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="pricetag-outline" size={16} color="#6366F1" />
+                        <Text style={[styles.toggleLabel, { color: colors.text }]}>Period Label & Number</Text>
+                      </View>
+                      <Text style={[styles.toggleDesc, { color: colors.textSecondary }]}>
+                        Display period badges (e.g. P1, Period 2, Class #1)
+                      </Text>
+                    </View>
+                    <Switch
+                      value={showPeriod}
+                      onValueChange={(val) => handleToggleOption('launcherWidgetShowPeriod', val)}
+                      trackColor={{ false: colors.borderSubtle, true: colors.primary }}
+                    />
+                  </View>
+
+                  {/* 3. Room Number */}
+                  <View style={[styles.toggleRow, { borderBottomColor: colors.borderSubtle }]}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="location-outline" size={16} color="#0EA5E9" />
+                        <Text style={[styles.toggleLabel, { color: colors.text }]}>Room & Location</Text>
+                      </View>
+                      <Text style={[styles.toggleDesc, { color: colors.textSecondary }]}>
+                        Display classroom number or lecture hall venue
+                      </Text>
+                    </View>
+                    <Switch
+                      value={showRoom}
+                      onValueChange={(val) => handleToggleOption('launcherWidgetShowRoom', val)}
+                      trackColor={{ false: colors.borderSubtle, true: colors.primary }}
+                    />
+                  </View>
+
+                  {/* 4. Teacher Name */}
+                  <View style={[styles.toggleRow, { borderBottomColor: colors.borderSubtle }]}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="person-outline" size={16} color="#8B5CF6" />
+                        <Text style={[styles.toggleLabel, { color: colors.text }]}>Teacher / Faculty</Text>
+                      </View>
+                      <Text style={[styles.toggleDesc, { color: colors.textSecondary }]}>
+                        Display lecturer or instructor name
+                      </Text>
+                    </View>
+                    <Switch
+                      value={showTeacher}
+                      onValueChange={(val) => handleToggleOption('launcherWidgetShowTeacher', val)}
+                      trackColor={{ false: colors.borderSubtle, true: colors.primary }}
+                    />
+                  </View>
+
+                  {/* 5. Short Subject Code */}
+                  <View style={[styles.toggleRow, { borderBottomColor: colors.borderSubtle }]}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="text-outline" size={16} color="#10B981" />
+                        <Text style={[styles.toggleLabel, { color: colors.text }]}>Short Course Code</Text>
+                      </View>
+                      <Text style={[styles.toggleDesc, { color: colors.textSecondary }]}>
+                        Use short code (e.g. CS101) instead of full subject name
+                      </Text>
+                    </View>
+                    <Switch
+                      value={showSubjectCode}
+                      onValueChange={(val) => handleToggleOption('launcherWidgetShowSubjectCode', val)}
+                      trackColor={{ false: colors.borderSubtle, true: colors.primary }}
+                    />
+                  </View>
+
+                  {/* 6. Attendance Status */}
+                  <View style={[styles.toggleRow, { borderBottomWidth: 0 }]}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="shield-checkmark-outline" size={16} color="#059669" />
+                        <Text style={[styles.toggleLabel, { color: colors.text }]}>Attendance Mark Status</Text>
+                      </View>
+                      <Text style={[styles.toggleDesc, { color: colors.textSecondary }]}>
+                        Show live attendance badge (✓ Present, ✗ Absent, Unmarked)
+                      </Text>
+                    </View>
+                    <Switch
+                      value={showAttendance}
+                      onValueChange={(val) => handleToggleOption('launcherWidgetShowAttendanceStatus', val)}
+                      trackColor={{ false: colors.borderSubtle, true: colors.primary }}
+                    />
+                  </View>
+                </View>
+              )}
+            </View>
+
             {/* Widget Selection Grid */}
             <View style={styles.gridContainer}>
               <Text style={[styles.gridTitle, { color: colors.textSecondary }]}>
@@ -429,15 +597,29 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
 
                   <View style={styles.widgetMainBody}>
                     <Text style={[styles.widgetSubject, { color: colors.text }]}>
-                      {firstClass?.subject?.name || 'Computer Science & Lab'}
+                      {getSubjectDisplayName(firstClass?.subject)}
                     </Text>
-                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
-                      <Text style={[styles.widgetMeta, { color: colors.textSecondary }]}>
-                        ⏰ {formatTimeRange(firstClass?.period?.startTime || '09:00', firstClass?.period?.endTime || '09:45', settings.timeFormat || '12h')}
-                      </Text>
-                      <Text style={[styles.widgetMeta, { color: colors.textSecondary }]}>
-                        📍 {firstClass?.entry?.roomOverride || firstClass?.subject?.room || 'Lab 402'}
-                      </Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
+                      {showPeriod && firstClass?.period?.label ? (
+                        <Text style={[styles.widgetMeta, { color: colors.primary, fontWeight: '700' }]}>
+                          🏷️ {firstClass.period.label}
+                        </Text>
+                      ) : null}
+                      {showTime ? (
+                        <Text style={[styles.widgetMeta, { color: colors.textSecondary }]}>
+                          ⏰ {formatTimeRange(firstClass?.period?.startTime || '09:00', firstClass?.period?.endTime || '09:45', settings.timeFormat || '12h')}
+                        </Text>
+                      ) : null}
+                      {showRoom && (firstClass?.entry?.roomOverride || firstClass?.subject?.room) ? (
+                        <Text style={[styles.widgetMeta, { color: colors.textSecondary }]}>
+                          📍 {firstClass?.entry?.roomOverride || firstClass?.subject?.room}
+                        </Text>
+                      ) : null}
+                      {showTeacher && (firstClass?.entry?.teacher || firstClass?.subject?.teacher) ? (
+                        <Text style={[styles.widgetMeta, { color: colors.textSecondary }]}>
+                          👤 {firstClass?.entry?.teacher || firstClass?.subject?.teacher}
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
                 </View>
@@ -488,6 +670,12 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
 
                           const att = getAttendanceInfo(item.entry.periodId, item.entry.subjectId);
 
+                          const roomVal = showRoom ? (item.entry.roomOverride || item.subject?.room) : null;
+                          const teacherVal = showTeacher ? (item.entry.teacher || item.subject?.teacher) : null;
+                          const metaParts = [];
+                          if (roomVal) metaParts.push(`📍 ${roomVal}`);
+                          if (teacherVal) metaParts.push(`👤 ${teacherVal}`);
+
                           return (
                             <View
                               key={item.entry.id || idx}
@@ -496,27 +684,36 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                               <View style={[styles.cardAccentBar, { backgroundColor: '#6366F1' }]} />
                               <View style={{ flex: 1 }}>
                                 <View style={styles.cardHeaderRow}>
-                                  <View style={[styles.timeBadge, { backgroundColor: '#312E81' }]}>
-                                    <Text style={styles.timeBadgeText}>
-                                      ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
-                                    </Text>
-                                  </View>
-                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <View style={[styles.attendanceBadge, { backgroundColor: att.bg }]}>
-                                      <Text style={[styles.attendanceBadgeText, { color: att.color }]}>{att.label}</Text>
+                                  {showTime ? (
+                                    <View style={[styles.timeBadge, { backgroundColor: '#312E81' }]}>
+                                      <Text style={styles.timeBadgeText}>
+                                        ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
+                                      </Text>
                                     </View>
-                                    <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
-                                      <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusText}</Text>
-                                    </View>
+                                  ) : null}
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: showTime ? 0 : 'auto' }}>
+                                    {showAttendance ? (
+                                      <View style={[styles.attendanceBadge, { backgroundColor: att.bg }]}>
+                                        <Text style={[styles.attendanceBadgeText, { color: att.color }]}>{att.label}</Text>
+                                      </View>
+                                    ) : null}
+                                    {showPeriod ? (
+                                      <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+                                        <Text style={[styles.statusBadgeText, { color: statusColor }]}>
+                                          {item.period?.label ? `${item.period.label} • ${statusText}` : statusText}
+                                        </Text>
+                                      </View>
+                                    ) : null}
                                   </View>
                                 </View>
                                 <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
-                                  {item.subject?.name || 'Class'}
+                                  {getSubjectDisplayName(item.subject)}
                                 </Text>
-                                <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
-                                  {item.entry.roomOverride || item.subject?.room ? `📍 ${item.entry.roomOverride || item.subject?.room}` : '📍 Room TBA'}
-                                  {item.entry.teacher || item.subject?.teacher ? `  •  👤 ${item.entry.teacher || item.subject?.teacher}` : ''}
-                                </Text>
+                                {metaParts.length > 0 ? (
+                                  <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
+                                    {metaParts.join('  •  ')}
+                                  </Text>
+                                ) : null}
                               </View>
                             </View>
                           );
@@ -561,33 +758,48 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                         nestedScrollEnabled={true}
                         showsVerticalScrollIndicator={true}
                       >
-                        {tomorrowEntries.map((item, idx) => (
-                          <View
-                            key={item.entry.id || idx}
-                            style={[styles.classItemCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
-                          >
-                            <View style={[styles.cardAccentBar, { backgroundColor: '#8B5CF6' }]} />
-                            <View style={{ flex: 1 }}>
-                              <View style={styles.cardHeaderRow}>
-                                <View style={[styles.timeBadge, { backgroundColor: '#4C1D95' }]}>
-                                  <Text style={styles.timeBadgeText}>
-                                    ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
+                        {tomorrowEntries.map((item, idx) => {
+                          const roomVal = showRoom ? (item.entry.roomOverride || item.subject?.room) : null;
+                          const teacherVal = showTeacher ? (item.entry.teacher || item.subject?.teacher) : null;
+                          const metaParts = [];
+                          if (roomVal) metaParts.push(`📍 ${roomVal}`);
+                          if (teacherVal) metaParts.push(`👤 ${teacherVal}`);
+
+                          return (
+                            <View
+                              key={item.entry.id || idx}
+                              style={[styles.classItemCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}
+                            >
+                              <View style={[styles.cardAccentBar, { backgroundColor: '#8B5CF6' }]} />
+                              <View style={{ flex: 1 }}>
+                                <View style={styles.cardHeaderRow}>
+                                  {showTime ? (
+                                    <View style={[styles.timeBadge, { backgroundColor: '#4C1D95' }]}>
+                                      <Text style={styles.timeBadgeText}>
+                                        ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
+                                      </Text>
+                                    </View>
+                                  ) : null}
+                                  {showPeriod ? (
+                                    <View style={[styles.statusBadge, { backgroundColor: '#F3E8FF', marginLeft: showTime ? 0 : 'auto' }]}>
+                                      <Text style={[styles.statusBadgeText, { color: '#7C3AED' }]}>
+                                        {item.period?.label ? item.period.label : `LECTURE ${idx + 1}`}
+                                      </Text>
+                                    </View>
+                                  ) : null}
+                                </View>
+                                <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
+                                  {getSubjectDisplayName(item.subject)}
+                                </Text>
+                                {metaParts.length > 0 ? (
+                                  <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
+                                    {metaParts.join('  •  ')}
                                   </Text>
-                                </View>
-                                <View style={[styles.statusBadge, { backgroundColor: '#F3E8FF' }]}>
-                                  <Text style={[styles.statusBadgeText, { color: '#7C3AED' }]}>LECTURE {idx + 1}</Text>
-                                </View>
+                                ) : null}
                               </View>
-                              <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
-                                {item.subject?.name || 'Class'}
-                              </Text>
-                              <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
-                                {item.entry.roomOverride || item.subject?.room ? `📍 ${item.entry.roomOverride || item.subject?.room}` : '📍 Room TBA'}
-                                {item.entry.teacher || item.subject?.teacher ? `  •  👤 ${item.entry.teacher || item.subject?.teacher}` : ''}
-                              </Text>
                             </View>
-                          </View>
-                        ))}
+                          );
+                        })}
                       </ScrollView>
                       {tomorrowEntries.length > 3 && (
                         <Text style={[styles.scrollHintText, { color: colors.textTertiary }]}>
@@ -609,14 +821,14 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
 
               {/* 4. Weekly Timetable Overview (Table / Grid View) */}
               {activePreviewTab === 'weekly_timetable' && (
-                <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: '#EC4899', paddingHorizontal: 10 }]}>
+                <View style={[styles.launcherWidgetBox, { backgroundColor: colors.card, borderColor: '#6366F1', paddingHorizontal: 10 }]}>
                   <View style={styles.widgetHeaderRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="grid" size={18} color="#EC4899" />
+                      <Ionicons name="grid" size={18} color="#6366F1" />
                       <Text style={[styles.widgetHeaderTitle, { color: colors.text }]}>Weekly Timetable Table</Text>
                     </View>
-                    <View style={[styles.liveBadge, { backgroundColor: '#FCE7F3' }]}>
-                      <Text style={[styles.liveBadgeText, { color: '#DB2777' }]}>{entries.length} Sessions</Text>
+                    <View style={[styles.liveBadge, { backgroundColor: '#EEF2FF' }]}>
+                      <Text style={[styles.liveBadgeText, { color: '#4F46E5' }]}>{entries.length} Sessions</Text>
                     </View>
                   </View>
 
@@ -635,7 +847,7 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                               style={[
                                 styles.thCell,
                                 styles.dayThCell,
-                                { backgroundColor: isToday ? '#EC4899' : colors.surfaceVariant, borderColor: isToday ? '#EC4899' : colors.borderSubtle },
+                                { backgroundColor: isToday ? '#6366F1' : colors.surfaceVariant, borderColor: isToday ? '#6366F1' : colors.borderSubtle },
                               ]}
                             >
                               <Text style={[styles.thText, { color: isToday ? '#FFFFFF' : colors.text }]}>
@@ -652,8 +864,14 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                           <View key={period.id} style={styles.tableDataRow}>
                             {/* Time column */}
                             <View style={[styles.tdCell, styles.timeTdCell, { backgroundColor: colors.surfaceVariant, borderColor: colors.borderSubtle }]}>
-                              <Text style={[styles.timeCellText, { color: colors.text }]}>{period.startTime}</Text>
-                              <Text style={[styles.timeCellSubText, { color: colors.textSecondary }]}>{period.endTime}</Text>
+                              {showTime ? (
+                                <>
+                                  <Text style={[styles.timeCellText, { color: colors.text }]}>{period.startTime}</Text>
+                                  <Text style={[styles.timeCellSubText, { color: colors.textSecondary }]}>{period.endTime}</Text>
+                                </>
+                              ) : (
+                                <Text style={[styles.timeCellText, { color: colors.text }]}>{period.label || `P${period.id}`}</Text>
+                              )}
                             </View>
 
                             {/* Day columns */}
@@ -670,8 +888,8 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                                     styles.tdCell,
                                     styles.dayTdCell,
                                     {
-                                      backgroundColor: isToday ? (subject ? '#FDF2F8' : colors.surfaceVariant) : (subject ? colors.card : colors.surface),
-                                      borderColor: isToday ? '#F472B6' : colors.borderSubtle,
+                                      backgroundColor: isToday ? (subject ? '#EEF2FF' : colors.surfaceVariant) : (subject ? colors.card : colors.surface),
+                                      borderColor: isToday ? '#818CF8' : colors.borderSubtle,
                                     },
                                   ]}
                                 >
@@ -680,18 +898,23 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                                       <Text
                                         style={[
                                           styles.tableSubjectText,
-                                          { color: isToday ? '#BE185D' : colors.text },
+                                          { color: isToday ? '#4338CA' : colors.text },
                                         ]}
                                         numberOfLines={1}
                                       >
-                                        {subject.code || subject.name}
+                                        {getSubjectDisplayName(subject)}
                                       </Text>
-                                      {entry?.roomOverride || subject.room ? (
+                                      {showRoom && (entry?.roomOverride || subject.room) ? (
                                         <Text style={[styles.tableRoomText, { color: colors.textTertiary }]} numberOfLines={1}>
                                           {entry?.roomOverride || subject.room}
                                         </Text>
                                       ) : null}
-                                      {att && att.status !== 'unmarked' ? (
+                                      {showTeacher && (entry?.teacher || subject.teacher) ? (
+                                        <Text style={[styles.tableRoomText, { color: colors.textTertiary }]} numberOfLines={1}>
+                                          {entry?.teacher || subject.teacher}
+                                        </Text>
+                                      ) : null}
+                                      {showAttendance && att && att.status !== 'unmarked' ? (
                                         <View style={[styles.tableAttPill, { backgroundColor: att.bg }]}>
                                           <Text style={[styles.tableAttText, { color: att.color }]}>
                                             {att.status === 'present' ? '✓' : att.status === 'absent' ? '✗' : 'OFF'}
@@ -758,6 +981,12 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
 
                           const att = getAttendanceInfo(item.entry.periodId, item.entry.subjectId);
 
+                          const roomVal = showRoom ? (item.entry.roomOverride || item.subject?.room) : null;
+                          const teacherVal = showTeacher ? (item.entry.teacher || item.subject?.teacher) : null;
+                          const metaParts = [];
+                          if (roomVal) metaParts.push(`📍 ${roomVal}`);
+                          if (teacherVal) metaParts.push(`👤 ${teacherVal}`);
+
                           return (
                             <View
                               key={item.entry.id || idx}
@@ -766,27 +995,36 @@ export const LauncherWidgetModal: React.FC<LauncherWidgetModalProps> = ({
                               <View style={[styles.cardAccentBar, { backgroundColor: '#6366F1' }]} />
                               <View style={{ flex: 1 }}>
                                 <View style={styles.cardHeaderRow}>
-                                  <View style={[styles.timeBadge, { backgroundColor: '#312E81' }]}>
-                                    <Text style={styles.timeBadgeText}>
-                                      ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
-                                    </Text>
-                                  </View>
-                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <View style={[styles.attendanceBadge, { backgroundColor: att.bg }]}>
-                                      <Text style={[styles.attendanceBadgeText, { color: att.color }]}>{att.label}</Text>
+                                  {showTime ? (
+                                    <View style={[styles.timeBadge, { backgroundColor: '#312E81' }]}>
+                                      <Text style={styles.timeBadgeText}>
+                                        ⏰ {formatTimeRange(item.period?.startTime || '00:00', item.period?.endTime || '00:00', settings.timeFormat || '12h')}
+                                      </Text>
                                     </View>
-                                    <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
-                                      <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusText}</Text>
-                                    </View>
+                                  ) : null}
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: showTime ? 0 : 'auto' }}>
+                                    {showAttendance ? (
+                                      <View style={[styles.attendanceBadge, { backgroundColor: att.bg }]}>
+                                        <Text style={[styles.attendanceBadgeText, { color: att.color }]}>{att.label}</Text>
+                                      </View>
+                                    ) : null}
+                                    {showPeriod ? (
+                                      <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+                                        <Text style={[styles.statusBadgeText, { color: statusColor }]}>
+                                          {item.period?.label ? `${item.period.label} • ${statusText}` : statusText}
+                                        </Text>
+                                      </View>
+                                    ) : null}
                                   </View>
                                 </View>
                                 <Text style={[styles.cardSubjectTitle, { color: colors.text }]} numberOfLines={1}>
-                                  {item.subject?.name || 'Class'}
+                                  {getSubjectDisplayName(item.subject)}
                                 </Text>
-                                <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
-                                  {item.entry.roomOverride || item.subject?.room ? `📍 ${item.entry.roomOverride || item.subject?.room}` : '📍 Room TBA'}
-                                  {item.entry.teacher || item.subject?.teacher ? `  •  👤 ${item.entry.teacher || item.subject?.teacher}` : ''}
-                                </Text>
+                                {metaParts.length > 0 ? (
+                                  <Text style={[styles.cardMetaText, { color: colors.textSecondary }]} numberOfLines={1}>
+                                    {metaParts.join('  •  ')}
+                                  </Text>
+                                ) : null}
                               </View>
                             </View>
                           );
@@ -1013,6 +1251,52 @@ const styles = StyleSheet.create({
   },
   body: {
     paddingHorizontal: 20,
+  },
+  customizationCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 14,
+    overflow: 'hidden',
+  },
+  customizationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  customizationIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customizationTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  customizationSub: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  customizationBody: {
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  toggleLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  toggleDesc: {
+    fontSize: 10,
+    marginTop: 2,
   },
   gridContainer: {
     marginBottom: 14,

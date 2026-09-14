@@ -13,6 +13,7 @@ import { Badge } from '../common/Badge';
 import { Ionicons } from '@expo/vector-icons';
 import { DayOfWeek } from '../../types';
 import { formatTimeRange } from '../../utils/timeUtils';
+import { format } from 'date-fns';
 
 export type TomorrowBunkScope = 'full_day' | 'morning' | 'afternoon' | 'custom';
 
@@ -20,7 +21,7 @@ const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export const TomorrowBunkWidget: React.FC = () => {
   const { colors } = useTheme();
-  const { overallStats, subjects, periods, entries, getSubjectStats, settings } = useApp();
+  const { overallStats, subjects, periods, entries, getSubjectStats, settings, holidays } = useApp();
 
   const [tomorrowScope, setTomorrowScope] = useState<TomorrowBunkScope>('full_day');
   const [customSelectedEntryIds, setCustomSelectedEntryIds] = useState<string[]>([]);
@@ -29,10 +30,27 @@ export const TomorrowBunkWidget: React.FC = () => {
   const { percentage, target, safeBunks, neededToTarget, attendedClasses, totalClasses } = overallStats;
   const isSafe = percentage >= target;
 
+  const tomorrowDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d;
+  }, []);
+  const tomorrowStr = useMemo(() => format(tomorrowDate, 'yyyy-MM-dd'), [tomorrowDate]);
+  const tomorrowHoliday = useMemo(() => {
+    return holidays.find(h => tomorrowStr >= h.startDate && tomorrowStr <= h.endDate);
+  }, [holidays, tomorrowStr]);
+
   // Compute Tomorrow's Schedule Items
   const tomorrowInfo = useMemo(() => {
-    const tomorrowDate = new Date();
-    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    if (tomorrowHoliday) {
+      return {
+        tomorrowWeekday: 0 as DayOfWeek,
+        dayName: '',
+        items: [],
+        morningCount: 0,
+        afternoonCount: 0,
+      };
+    }
     const tomorrowJsDay = tomorrowDate.getDay(); // 0 = Sun, 1 = Mon...
     const tomorrowWeekday: DayOfWeek = ((tomorrowJsDay + 6) % 7) as DayOfWeek;
     const dayName = DAY_NAMES[tomorrowWeekday];
@@ -199,7 +217,9 @@ export const TomorrowBunkWidget: React.FC = () => {
 
       {tomorrowInfo.items.length === 0 ? (
         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-          No classes tomorrow ({tomorrowInfo.dayName}) 🎉
+          {tomorrowHoliday
+            ? `🌴 Tomorrow is a Holiday (${tomorrowHoliday.name}) — Attendance paused, no classes! 🎉`
+            : `No classes tomorrow (${tomorrowInfo.dayName}) 🎉`}
         </Text>
       ) : (
         <>

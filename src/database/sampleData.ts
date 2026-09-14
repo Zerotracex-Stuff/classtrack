@@ -22,6 +22,12 @@ export const DEFAULT_SETTINGS: UserSettings = {
   notifyBeforeClass: true,
   reminderMinutesBefore: 10,
   notifyUnmarkedAttendance: true,
+  launcherWidgetShowTime: true,
+  launcherWidgetShowPeriod: true,
+  launcherWidgetShowRoom: true,
+  launcherWidgetShowTeacher: true,
+  launcherWidgetShowSubjectCode: false,
+  launcherWidgetShowAttendanceStatus: true,
 };
 
 export const DEFAULT_EXAMS: Exam[] = [];
