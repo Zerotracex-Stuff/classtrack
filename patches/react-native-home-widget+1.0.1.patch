@@ -474,10 +474,10 @@ index 0000000..f654816
 +    }
 +}
 diff --git a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetFactory.java b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetFactory.java
-index e3c340e..b9d78c2 100644
+index e3c340e..f70e046 100644
 --- a/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetFactory.java
 +++ b/node_modules/react-native-home-widget/android/src/main/java/com/reactnativehomewidget/widget/HomeWidgetFactory.java
-@@ -1,56 +1,293 @@
+@@ -1,56 +1,315 @@
  package com.reactnativehomewidget.widget;
  
 +import android.appwidget.AppWidgetManager;
@@ -705,12 +705,11 @@ index e3c340e..b9d78c2 100644
 +            } else {
 +                if (position >= classList.size()) return null;
 +                JSONObject item = classList.get(position);
++
++                RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_item_class);
  
 -        Intent fillInIntent = new Intent();
 -        views.setOnClickFillInIntent(R.id.widget_title, fillInIntent);
-+                RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_item_class);
- 
--        return views;
 +                String startStr = item.optString("startTime", "");
 +                String endStr = item.optString("endTime", "");
 +                if (startStr.isEmpty()) {
@@ -720,7 +719,8 @@ index e3c340e..b9d78c2 100644
 +                    String timeRange = endStr.isEmpty() ? startStr : (startStr + " - " + endStr);
 +                    views.setTextViewText(R.id.item_time, timeRange);
 +                }
-+
+ 
+-        return views;
 +                // Timing / Session Status / Period Label
 +                int startMins = parseTimeMins(startStr);
 +                int endMins = parseTimeMins(endStr);
@@ -807,7 +807,7 @@ index e3c340e..b9d78c2 100644
      }
  
      @Override
-@@ -60,7 +297,7 @@ public class HomeWidgetFactory implements RemoteViewsService.RemoteViewsFactory
+@@ -60,7 +319,7 @@ public class HomeWidgetFactory implements RemoteViewsService.RemoteViewsFactory
  
      @Override
      public int getViewTypeCount() {
@@ -816,7 +816,7 @@ index e3c340e..b9d78c2 100644
      }
  
      @Override
-@@ -72,4 +309,13 @@ public class HomeWidgetFactory implements RemoteViewsService.RemoteViewsFactory
+@@ -72,4 +331,13 @@ public class HomeWidgetFactory implements RemoteViewsService.RemoteViewsFactory
      public boolean hasStableIds() {
          return true;
      }
